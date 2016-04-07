@@ -33,14 +33,14 @@ allowVPN=NO
 - The next bit consists of three arrays, they are for different inbound/output and connection states. These
 are each enabled by their corresponding enable option by typing YES/NO where asked.
 
-: - The first is for allowing new inbound connections over a specific port. An example of this is allowing
+: The first is for allowing new inbound connections over a specific port. An example of this is allowing
 : someone to SSH into your machine. So you might enter port 22 in this section to allow that through
 
-: - The second, this is for allowing established connections back in. This is necessary for things such
+: The second, this is for allowing established connections back in. This is necessary for things such
 : as HTTP for after you request content a response is sent back with that content, so it must be allowed
 : back in. 
 
-: - The third, this is allowing outbound new and established connections to get out of the machine. By
+: The third, this is allowing outbound new and established connections to get out of the machine. By
 : default ports 80, 443, 22, 53, 67/68 and outbound pings are allowed so regular function can be allowed.
 : Anything extra such as 6667 for IRC must be entered here to be allowed out.
 
