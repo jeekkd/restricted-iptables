@@ -15,9 +15,14 @@
 #	coming inbound
 # * Allows new and established outbound connections for both ipv4 and ipv6          
 
-# Save existing iptables rules before changing anything. iptables-restore script can be used to 
+# Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary
-iptables-save > /tmp/iptables.rules
+if [ -f "/tmp/original_iptables.rules" ]; then
+	today_date=$( date +%I_%M_%b_%d_%Y)
+	iptables-save > /tmp/${today_date}_iptables.rules
+else 
+	iptables-save > /tmp/original_iptables.rules
+fi
 
 ################## VARIABLES ##################
 
