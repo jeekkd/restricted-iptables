@@ -8,11 +8,16 @@
 # connections that are allowed in or out over a particular port etc is restricted
 # to the following, operating in a default deny for all input, output, and forwarding tables:  
 #
-# * Denies all uninitiated inbound connections except for torrents so peers can connect
+# * Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
+# * Denies all uninitiated ipv6 inbound connections
 # * Drops inbound pings, allows outbound for both ipv4 and ipv6
 # * Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
-# coming inbound
-# * Allows new and established outbound connections for ipv6 but blocks all new inbound          
+#	coming inbound
+# * Allows new and established outbound connections for both ipv4 and ipv6          
+
+# Save existing iptables rules before changing anything. iptables-restore script can be used to 
+# restore old rules if necessary
+iptables-save > /tmp/iptables.rules
 
 ################## VARIABLES ##################
 
@@ -155,12 +160,10 @@ fi
 # Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
 iptables -A INPUT -f -j DROP
 
-# XMAS packets
-# Incoming malformed XMAS packets drop them
+# XMAS packets: Incoming malformed XMAS packets drop them
 iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
 
-#Drop all NULL packets
-#Incoming malformed NULL packets
+#Drop all NULL packets: Incoming malformed NULL packets
 iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
 echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
