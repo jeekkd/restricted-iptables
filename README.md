@@ -9,7 +9,7 @@ restricted to the following, operating in a default deny for all input, output, 
 
 - Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
 - Denies all uninitiated ipv6 inbound connections
-- Drops inbound pings, allows outbound for both ipv4 and ipv6
+- Drops inbound pings (if desired), allows outbound for both ipv4 and ipv6
 - Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
 coming inbound
 - Allows new and established outbound connections for both ipv4 and ipv6
@@ -96,3 +96,17 @@ in time to restore your rules to.
 ```
 sudo bash restore_iptables.sh
 ```
+
+> **Note:** 
+> Rules are stored in /tmp by default, /tmp is cleaned automatically so if you wish to keep your rules 
+> permanently you can either change the location the scripts use or manually save by doing the following
+>
+> Saving:
+> ```
+ iptables-save > /directory/example.rules
+>
+>```
+> Restoring:
+> ```
+ iptables-restore < /directory/example.rules
+> ```
