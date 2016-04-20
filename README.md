@@ -60,15 +60,21 @@ How to use
 
 - This will make the script readable, writable, and executable to root and your user. 
 
+```
 sudo chmod 770 restricted_iptables.sh restore_iptables.sh
+```
 
 - Open the script in your text editor of choice. You need to edit the variables in the highlighted variables section near the top.
 
+```
 gedit restricted_iptables.sh
+```
 
 - You will want to make sure you've saved, then launch the script by doing the following:
 
+```
 sudo bash restricted_iptables.sh
+```
 
 By launching the script it will set the rules automatically and as is set in the configuration done.
 
@@ -76,8 +82,17 @@ By launching the script it will set the rules automatically and as is set in the
 > Make sure you've installed the 'iptables' package for your distribution and if your distribution
 > such as Gentoo requires you to configure your own kernel [assure that iptables is configured/enabled](https://wiki.gentoo.org/wiki/Iptables)
 
-- By default before each time the script is ran your existing rules are saved. There is a companion script
-called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules
-were set. To restore your old rules launch the script as such:
+Restoring previous rules
+===
 
+By default before each time the script is ran your existing rules are saved. There is a companion script 
+called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
+set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
+still it will create time and date stamped rules files each time after to give you a selection of which point 
+in time to restore your rules to.
+
+- To restore your old rules launch the script as such and follow the prompts
+
+```
 sudo bash restore_iptables.sh
+```
