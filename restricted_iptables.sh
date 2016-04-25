@@ -118,6 +118,7 @@ iptables -A INPUT -p udp -m udp --dport $DNS -m state --state ESTABLISHED -j ACC
 if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
 	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
 	iptables -A INPUT -p tcp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p udp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
 fi
 
 if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
@@ -275,6 +276,7 @@ fi
 
 if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
 	iptables -A OUTPUT -p tcp -m tcp --dport $TORRENTS -j ACCEPT
+	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
 fi
 
 echo "* Allowing DNS out over port $DNS"
