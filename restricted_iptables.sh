@@ -16,7 +16,7 @@
 # * Allows new and established outbound connections for both ipv4 and ipv6          
 
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
-# restore old rules if necessary
+# restore old rules if necessary - included in the repo.
 if [ -f "/tmp/original_iptables.rules" ]; then
 	today_date=$( date +%I_%M_%b_%d_%Y)
 	iptables-save > /tmp/${today_date}_iptables.rules
@@ -72,8 +72,7 @@ SSL=443
 SSH=22
 TORRENTS=51413
 
-# Change accordingly to your interface naming scheme and the ones you
-# are using.
+# Change accordingly to your interface naming scheme and the ones you are using.
 ETH=eth0
 WLAN=wlan0
 TUN=tun0
@@ -82,6 +81,7 @@ TUN=tun0
 #TCPBurstEst: # of Packets an existing connection can send in 1 request
 TCPBurstNew=200
 TCPBurstEst=50
+# IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
 
 #################################################
 
@@ -108,59 +108,13 @@ ip6tables -P FORWARD DROP
 ###############       INPUT        ###############
 ##################################################
 
-echo "* Allow access for the interfaces loopback, tun, and tap"
-iptables -A INPUT -i lo -p all -j ACCEPT
-iptables -A INPUT -i tun -p all -j ACCEPT
-iptables -A INPUT -i tap -p all -j ACCEPT
-
-iptables -A INPUT -p udp -m udp --dport $DNS -m state --state ESTABLISHED -j ACCEPT
-
-if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
-	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
-	iptables -A INPUT -p tcp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A INPUT -p udp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
-fi
-
-if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
-	echo "* Block all incoming PINGS, Although they should be blocked already"
-	iptables -A INPUT -p icmp -m icmp --icmp-type 8 -j REJECT --reject-with icmp-proto-unreachable
-fi
-
-if  [[ $allowSSH == YES ]] || [[ $allowSSH == yes ]]; then
-	echo "* Allowing inbound SSH sessions"
-	iptables -A INPUT -p tcp --dport $SSH -m state --state NEW,ESTABLISHED -j ACCEPT
-fi
-
-if  [[ $allowHTTP == YES ]] || [[ $allowHTTP == yes ]]; then
-	echo "* Allowing inbound HTTP(S) traffic"
-	iptables -A INPUT -p tcp --dport $HTTP -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A INPUT -p tcp --dport $SSL -m state --state NEW,ESTABLISHED -j ACCEPT
-else
-	iptables -A INPUT -p tcp -m tcp --dport $SSL -m state --state ESTABLISHED -j ACCEPT
-	iptables -A INPUT -p tcp -m tcp --dport $WEB -m state --state ESTABLISHED -j ACCEPT
-fi
-
-if  [[ $enableInNewConnection == YES ]] || [[ $enableInNewConnection == yes ]]; then
-	inNewConnectionLength=${#inNewConnection[@]}
-	adjustedLength=$(( $inNewConnectionLength - 1 ))
-
-	for i in $( eval echo {0..$adjustedLength} )
-	do
-		iptables -A INPUT -p tcp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
-		iptables -A INPUT -p udp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
-	done
-fi
-
-if  [[ $enableInEstabConnection == YES ]] || [[ $enableInEstabConnection == yes ]]; then
-	enableInEstabConnectionLength=${#enableInEstabConnection[@]}
-	adjustedLength=$(( $enableInEstabConnectionLength - 1 ))
-
-	for i in $( eval echo {0..$adjustedLength} )
-	do
-		iptables -A INPUT -p tcp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED -j ACCEPT
-		iptables -A INPUT -p udp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED -j ACCEPT
-	done
-fi
+echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
+# All TCP sessions should begin with SYN
+iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+# Allow established and related packets
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -p tcp --dport $WEB -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
+iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
 
 # Force Fragments packets check
 # Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
@@ -171,15 +125,6 @@ iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
 
 #Drop all NULL packets: Incoming malformed NULL packets
 iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
-
-echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
-# IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
-# All TCP sessions should begin with SYN
-iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
-# Allow established and related packets
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -p tcp --dport $WEB -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
-iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
 
 echo "* Adding Protection from LAND Attacks"
 # Remove ranges that are required
@@ -233,7 +178,67 @@ iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j D
 iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG
 iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
-echo "* We will block ALL OTHER INBOUND TRAFFIC"
+echo "* Allowing established DNS requests back in"
+iptables -A INPUT -p udp -m udp --dport $DNS -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# This occurs if allowTorrents was entered as 'Yes' to allow torrent traffic
+if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
+	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
+	iptables -A INPUT -p tcp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p udp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
+fi
+
+# This occurs if allowPINGS was entered as 'No' to block all incoming pings
+if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
+	echo "* Block all incoming pings, although they should be blocked already"
+	iptables -A INPUT -p icmp -m icmp --icmp-type 8 -j REJECT --reject-with icmp-proto-unreachable
+fi
+
+# This occurs if allowSSH is entered as 'Yes' to allow incoming SSH connections
+if  [[ $allowSSH == YES ]] || [[ $allowSSH == yes ]]; then
+	echo "* Allowing inbound SSH sessions"
+	iptables -A INPUT -p tcp --dport $SSH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+fi
+
+# This occurs if allowHTTP is entered as 'Yes' to allow new incoming HTTP(S) connections.
+# This is needed for things such as web servers. Else it will only allow established connections
+# back in on ports 80, 443
+if  [[ $allowHTTP == YES ]] || [[ $allowHTTP == yes ]]; then
+	echo "* Allowing inbound HTTP(S) traffic"
+	iptables -A INPUT -p tcp --dport $HTTP -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp --dport $SSL -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+else
+	iptables -A INPUT -p tcp -m tcp --dport $SSL -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp -m tcp --dport $WEB -m state --state ESTABLISHED,RELATED -j ACCEPT
+fi
+
+# If enableInNewConnection is 'Yes' this will create rules for all entered ports in the inNewConnection
+# array. This for for allowing new and established connections in on the entered ports.
+if  [[ $enableInNewConnection == YES ]] || [[ $enableInNewConnection == yes ]]; then
+	inNewConnectionLength=${#inNewConnection[@]}
+	adjustedLength=$(( $inNewConnectionLength - 1 ))
+
+	for i in $( eval echo {0..$adjustedLength} )
+	do
+		iptables -A INPUT -p tcp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p udp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	done
+fi
+
+# Same as above, except operates on just established connections. Uses ports entered in the enableInEstabConnection
+# array if 'Yes' is selected.
+if  [[ $enableInEstabConnection == YES ]] || [[ $enableInEstabConnection == yes ]]; then
+	enableInEstabConnectionLength=${#enableInEstabConnection[@]}
+	adjustedLength=$(( $enableInEstabConnectionLength - 1 ))
+
+	for i in $( eval echo {0..$adjustedLength} )
+	do
+		iptables -A INPUT -p tcp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p udp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED,RELATED -j ACCEPT
+	done
+fi
+
+echo "* Rejecting ALL OTHER INBOUND TRAFFIC"
 iptables -A INPUT -j REJECT
 
 ##################################################
@@ -242,9 +247,7 @@ iptables -A INPUT -j REJECT
 
 iptables -A OUTPUT -o lo+ -j DROP
 
-iptables -A OUTPUT -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
+# Allows OpenVPN sessions to establish if allowVPN is selected as 'Yes'
 if  [[ $allowVPN == YES ]] || [[ $allowVPN == yes ]]; then
 	echo "* Allowing OpenVPN"
 	iptables -A OUTPUT -o tun+ -j ACCEPT
@@ -263,17 +266,21 @@ if  [[ $allowVPN == YES ]] || [[ $allowVPN == yes ]]; then
 	iptables -A OUTPUT -o eth+ -p udp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
 fi
 
+# If enableOutPorts is selected as 'Yes' then the entered ports in the enableOutboundConnections array
+# will have rules created to allow those ports to make outbound connections
 if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( $enableOutboundConnectionsLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A OUTPUT -p tcp --dport ${enableOutboundConnections[$i]} -m state --state ESTABLISHED -j ACCEPT
-		iptables -A OUTPUT -p udp --dport ${enableOutboundConnections[$i]} -m state --state ESTABLISHED -j ACCEPT
+		iptables -A OUTPUT -p tcp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
+		iptables -A OUTPUT -p udp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
 	done
 fi
 
+# If allowTorrents has been set to 'Yes' then torrent traffic will be allowed out on both udp and tcp
+# for the entered torrent port
 if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
 	iptables -A OUTPUT -p tcp -m tcp --dport $TORRENTS -j ACCEPT
 	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
@@ -329,21 +336,32 @@ ip6tables -X
 ip6tables -t mangle -F
 ip6tables -t mangle -X
  
-# loopback
 ip6tables -A INPUT -i lo -j DROP
 ip6tables -A OUTPUT -o lo -j ACCEPT
  
-# Allow full outbound connection but no inbound
+echo "* IPv6: Allow full outbound connection but no inbound"
 ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
 ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
  
-# ICMP ping, allow out and deny in
+echo "* IPv6: ICMP ping is being allowed outbound"
 ip6tables -A OUTPUT -o $ETH -p ipv6-icmp -j ACCEPT
 
 if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
+	echo "* IPv6: ICMP ping is being dropped inbound"
 	ip6tables -A INPUT -i $ETH -p ipv6-icmp -j DROP
+else
+	echo "* IPv6: ICMP ping is being accepted inbound"
+	ip6tables -A INPUT -i $ETH -p ipv6-icmp -j ACCEPT
 fi
 
-echo " * saving settings"
+echo "* IPv6: Dropping all other traffic"
+ip6tables -A INPUT -j DROP
+ip6tables -A OUTPUT -j DROP
+ip6tables -A FORWARD -j DROP
+
+##################################################
+
+echo " * Saving all settings"
 /etc/init.d/iptables save
+/etc/init.d/ip6tables save
 
