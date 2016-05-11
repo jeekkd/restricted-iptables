@@ -228,13 +228,13 @@ fi
 # Same as above, except operates on just established connections. Uses ports entered in the enableInEstabConnection
 # array if 'Yes' is selected.
 if  [[ $enableInEstabConnection == YES ]] || [[ $enableInEstabConnection == yes ]]; then
-	enableInEstabConnectionLength=${#enableInEstabConnection[@]}
+	enableInEstabConnectionLength=${#inEstabConnection[@]}
 	adjustedLength=$(( $enableInEstabConnectionLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A INPUT -p tcp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED,RELATED -j ACCEPT
-		iptables -A INPUT -p udp --dport ${enableInEstabConnection[$i]} -m state --state ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p tcp --dport ${inEstabConnection[$i]} -m state --state ESTABLISHED,RElATED -j ACCEPT
+		iptables -A INPUT -p udp --dport ${inEstabConnection[$i]} -m state --state ESTABLISHED,RElATED -j ACCEPT
 	done
 fi
 
@@ -274,8 +274,8 @@ if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A OUTPUT -p tcp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
-		iptables -A OUTPUT -p udp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED -j ACCEPT
+		iptables -A OUTPUT -p tcp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A OUTPUT -p udp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	done
 fi
 
@@ -325,7 +325,6 @@ iptables -A FORWARD -j DROP
 ##################################################
 
 iptables -t nat -A POSTROUTING -o $TUN -j MASQUERADE
-
 
 ##################################################
 ##############     IPv6 section     ##############
