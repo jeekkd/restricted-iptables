@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Written by: https://github.com/turkgrb
+# Written by: https://gitlab.com/u/huuteml
 # Website: https://daulton.ca
 # Purpose: This script will stop most port scanning attempts, UDP Floods,                  
 # SYN Floods, TCP Floods, Handshake Exploits, XMAS Packets,                       
@@ -36,6 +36,13 @@ allowSSH=NO
 allowHTTP=NO
 # Allow inbound/outbound torrent traffic? YES/NO
 allowTorrents=NO
+
+# What should the default input policy for ipv4 be? DROP, REJECT, or ACCEPT?
+inputPolicy=DROP
+# What should the default out policy for ipv4 be? DROP, REJECT, or ACCEPT?
+outputPolicy=DROP
+# What should the default forwarding policy for ipv4 be? DROP, REJECT, or ACCEPT?
+forwardPolicy=DROP
 
 # Do you want to enable the inNewConnection array to have the script input the entered ports
 # into iptables? YES/NO
@@ -95,9 +102,9 @@ ip6tables --delete-chain
 
 # IPv4 default policies
 echo "* Setting default policies"
-iptables -P INPUT DROP
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
+iptables -P INPUT $inputPolicy
+iptables -P OUTPUT $outputPolicy
+iptables -P FORWARD $forwardPolicy
 
 # IPv6 default policies
 ip6tables -P INPUT DROP
@@ -179,13 +186,13 @@ iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j
 iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
 echo "* Allowing established DNS requests back in"
-iptables -A INPUT -p udp -m udp --dport $DNS -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # This occurs if allowTorrents was entered as 'Yes' to allow torrent traffic
 if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
 	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
-	iptables -A INPUT -p tcp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A INPUT -p udp --dport $TORRENTS -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p tcp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p udp --dport  "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
 fi
 
 # This occurs if allowPINGS was entered as 'No' to block all incoming pings
@@ -205,23 +212,23 @@ fi
 # back in on ports 80, 443
 if  [[ $allowHTTP == YES ]] || [[ $allowHTTP == yes ]]; then
 	echo "* Allowing inbound HTTP(S) traffic"
-	iptables -A INPUT -p tcp --dport $HTTP -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -p tcp --dport $SSL -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp --dport "$HTTP" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp --dport "$SSL" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 else
-	iptables -A INPUT -p tcp -m tcp --dport $SSL -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -p tcp -m tcp --dport $WEB -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp -m tcp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp -m tcp --dport "$WEB" -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
 # If enableInNewConnection is 'Yes' this will create rules for all entered ports in the inNewConnection
 # array. This for for allowing new and established connections in on the entered ports.
 if  [[ $enableInNewConnection == YES ]] || [[ $enableInNewConnection == yes ]]; then
 	inNewConnectionLength=${#inNewConnection[@]}
-	adjustedLength=$(( $inNewConnectionLength - 1 ))
+	adjustedLength=$(( inNewConnectionLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A INPUT -p tcp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-		iptables -A INPUT -p udp --dport ${inNewConnection[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p tcp --dport "${inNewConnection[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p udp --dport "${inNewConnection[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	done
 fi
 
@@ -229,17 +236,19 @@ fi
 # array if 'Yes' is selected.
 if  [[ $enableInEstabConnection == YES ]] || [[ $enableInEstabConnection == yes ]]; then
 	enableInEstabConnectionLength=${#inEstabConnection[@]}
-	adjustedLength=$(( $enableInEstabConnectionLength - 1 ))
+	adjustedLength=$(( enableInEstabConnectionLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A INPUT -p tcp --dport ${inEstabConnection[$i]} -m state --state ESTABLISHED,RElATED -j ACCEPT
-		iptables -A INPUT -p udp --dport ${inEstabConnection[$i]} -m state --state ESTABLISHED,RElATED -j ACCEPT
+		iptables -A INPUT -p tcp --dport "${inEstabConnection[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
+		iptables -A INPUT -p udp --dport "${inEstabConnection[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
 	done
 fi
 
-echo "* Rejecting ALL OTHER INBOUND TRAFFIC"
-iptables -A INPUT -j REJECT
+if  [[ $inputPolicy == DROP ]] || [[ $inputPolicy == REJECT ]]; then
+	echo "* Rejecting ALL OTHER INBOUND TRAFFIC"
+	iptables -A INPUT -j REJECT
+fi
 
 ##################################################
 ###############       OUTPUT       ###############
@@ -270,12 +279,12 @@ fi
 # will have rules created to allow those ports to make outbound connections
 if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
-	adjustedLength=$(( $enableOutboundConnectionsLength - 1 ))
+	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A OUTPUT -p tcp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-		iptables -A OUTPUT -p udp --dport ${enableOutboundConnections[$i]} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A OUTPUT -p tcp --dport "${enableOutboundConnections[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A OUTPUT -p udp --dport "${enableOutboundConnections[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	done
 fi
 
@@ -304,8 +313,10 @@ iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 echo "* Allowing DHCP"
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
-echo "* Rejecting all other Outbound traffic"
-iptables -A OUTPUT -j REJECT
+if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == REJECT ]]; then
+	echo "* Rejecting all other Outbound traffic"
+	iptables -A OUTPUT -j REJECT
+fi
 
 ##################################################
 ###############       FORWARD       ##############
@@ -317,8 +328,11 @@ iptables -A FORWARD -i $TUN -o $ETH -j ACCEPT
 iptables -A FORWARD -i $WLAN -o $TUN -j ACCEPT
 iptables -A FORWARD -i $TUN -o $WLAN -j ACCEPT
 
-echo "* Dropping all other forwarded traffic"
-iptables -A FORWARD -j DROP
+
+if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == REJECT ]]; then
+	echo "* Dropping all other forwarded traffic"
+	iptables -A FORWARD -j DROP
+fi
 
 ##################################################
 ###############     POSTROUTING     ##############
