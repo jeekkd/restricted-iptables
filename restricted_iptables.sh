@@ -2,11 +2,10 @@
 
 # Written by: https://gitlab.com/u/huuteml
 # Website: https://daulton.ca
-# Purpose: This script will stop most port scanning attempts, UDP Floods,                  
-# SYN Floods, TCP Floods, Handshake Exploits, XMAS Packets,                       
-# Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally types of
-# connections that are allowed in or out over a particular port etc is restricted
-# to the following, operating in a default deny for all input, output, and forwarding tables:  
+# Purpose: This script will stop most port scanning attempts, UDP Floods, SYN Floods, TCP Floods, 
+# Handshake Exploits, XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally 
+# types of connections that are allowed in or out over a particular port etc is restricted to the
+# following, operating in a default deny for all input, output, and forwarding tables:  
 #
 # * Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
 # * Denies all uninitiated ipv6 inbound connections
@@ -14,7 +13,11 @@
 # * Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
 #	coming inbound
 # * Allows new and established outbound connections for both ipv4 and ipv6          
-
+#
+# Note: This script requires some tuning to be optimized for a least privledge sort of policy where things
+# work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
+# things out for your specific system
+#
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary - included in the repo.
 if [ -f "/tmp/original_iptables.rules" ]; then
@@ -23,6 +26,15 @@ if [ -f "/tmp/original_iptables.rules" ]; then
 else 
 	iptables-save > /tmp/original_iptables.rules
 fi
+
+# Policy Definitions:
+# Accept – Allow the connection.
+#
+# Drop – Drop the connection, act like it never happened. This is best if you don’t want the source to 
+# realize your system exists.
+#
+# Reject – Don’t allow the connection, but send back an error. This is best if you don’t want a particular 
+# source to connect to your system, but you want them to know that your firewall blocked them.
 
 ################## VARIABLES ##################
 
@@ -47,26 +59,22 @@ forwardPolicy=DROP
 # Do you want to enable the inNewConnection array to have the script input the entered ports
 # into iptables? YES/NO
 enableInNewConnection=NO
-# Enter numerical port values here for new inbound connections that you want to establish. As an example
-# if you want new inbound SSH sessions to be allowed, you'd put 22. 
-# inNewConnection=("22" "5900") 
+# Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
+# establish. As an example, if you want NEW uninitiated inbound NFS sessions to be allowed, you'd put 111. 
+# Note: This is seperate from the YES/NO questions above
+#
+# Example: inNewConnection=("5900" "111") 
 inNewConnection=("")
-
-# Do you want to enable the InEstabConnection array to have the script input the entered ports
-# into iptables? YES/NO
-enableInEstabConnection=NO
-# Enter numerical port values here for allowed established inbound connections, these are connections
-# you establish. So to allow browser to establish HTTP sessions you'd enter port 80 if you want to allow
-# that.
-# Example: inEstabConnection=("5900" "3389" "3390" "6667")
-inEstabConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? YES/NO
 enableOutPorts=NO
-# Enter numerical port values here for allowed outbound connections, since the script operates in a default
-# drop/deny state you need to enter values here for ports you want to allow connections outbound on that
-# are ports outside the default 80, 443, 22, 53
+# Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
+# to allow connections outbound on. These are also entered into the input chain to allow established and
+# related connections back in.
+#
+# These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP
+#
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
 enableOutboundConnections=("")
 
@@ -90,7 +98,9 @@ TCPBurstNew=200
 TCPBurstEst=50
 # IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
 
-#################################################
+################################################################
+# Here be dragons! Be warned about venturing beyond this point #
+################################################################
 
 # Flush old rules, old custom tables
 echo "* Flushing old rules"
@@ -232,21 +242,27 @@ if  [[ $enableInNewConnection == YES ]] || [[ $enableInNewConnection == yes ]]; 
 	done
 fi
 
-# Same as above, except operates on just established connections. Uses ports entered in the enableInEstabConnection
-# array if 'Yes' is selected.
-if  [[ $enableInEstabConnection == YES ]] || [[ $enableInEstabConnection == yes ]]; then
-	enableInEstabConnectionLength=${#inEstabConnection[@]}
-	adjustedLength=$(( enableInEstabConnectionLength - 1 ))
+# This is similar to the above, except it uses the enableOutboundConnections array. The purpose of this
+# is to allow established and related connections back in on outbound connections using the same ports 
+# entered into the array
+if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
+	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
+	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A INPUT -p tcp --dport "${inEstabConnection[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
-		iptables -A INPUT -p udp --dport "${inEstabConnection[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
+		iptables -A INPUT -p tcp --dport "${enableOutboundConnections[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
+		iptables -A INPUT -p udp --dport "${enableOutboundConnections[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
 	done
 fi
 
-if  [[ $inputPolicy == DROP ]] || [[ $inputPolicy == REJECT ]]; then
-	echo "* Rejecting ALL OTHER INBOUND TRAFFIC"
+if  [[ $inputPolicy == DROP ]] || [[ $inputPolicy == drop ]]; then
+	echo "* DROPPING ALL OTHER INBOUND TRAFFIC"
+	iptables -A INPUT -j DROP
+fi
+
+if  [[ $inputPolicy == REJECT ]] || [[ $inputPolicy == reject ]]; then
+	echo "* REJECTING ALL OTHER INBOUND TRAFFIC"
 	iptables -A INPUT -j REJECT
 fi
 
@@ -313,8 +329,13 @@ iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 echo "* Allowing DHCP"
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
-if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == REJECT ]]; then
-	echo "* Rejecting all other Outbound traffic"
+if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == drop ]]; then
+	echo "* DROPPING ALL OTHER OUTBOUND TRAFFIC"
+	iptables -A OUTPUT -j DROP
+fi
+
+if  [[ $outputPolicy == REJECT ]] || [[ $outputPolicy == reject ]]; then
+	echo "* REJECTING ALL OTHER OUTBOUND TRAFFIC"
 	iptables -A OUTPUT -j REJECT
 fi
 
@@ -328,10 +349,14 @@ iptables -A FORWARD -i $TUN -o $ETH -j ACCEPT
 iptables -A FORWARD -i $WLAN -o $TUN -j ACCEPT
 iptables -A FORWARD -i $TUN -o $WLAN -j ACCEPT
 
-
-if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == REJECT ]]; then
-	echo "* Dropping all other forwarded traffic"
+if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
+	echo "* DROPPING all other forwarded traffic"
 	iptables -A FORWARD -j DROP
+fi
+
+if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
+	echo "* REJECTING all other forwarded traffic"
+	iptables -A FORWARD -j REJECT
 fi
 
 ##################################################
