@@ -31,7 +31,7 @@
 ################## VARIABLES ##################
 
 # Allow OpenVPN to establish? YES/NO
-allowVPN=YES
+allowVPN=NO
 # Allow inbound pings? YES/NO
 allowPINGS=NO
 # Allow inbound SSH? YES/NO
@@ -39,12 +39,12 @@ allowSSH=NO
 # Allow inbound traffic on port 80/443? YES/NO
 allowHTTP=NO
 # Allow inbound/outbound torrent traffic? YES/NO
-allowTorrents=YES
+allowTorrents=NO
 
 # What should the default input policy for ipv4 be? DROP, REJECT, or ACCEPT?
 inputPolicy=DROP
 # What should the default out policy for ipv4 be? DROP, REJECT, or ACCEPT?
-outputPolicy=ACCEPT
+outputPolicy=DROP
 # What should the default forwarding policy for ipv4 be? DROP, REJECT, or ACCEPT?
 forwardPolicy=DROP
 
@@ -60,7 +60,7 @@ inNewConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? YES/NO
-enableOutPorts=YES
+enableOutPorts=NO
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -68,7 +68,7 @@ enableOutPorts=YES
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
+enableOutboundConnections=("")
 
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
