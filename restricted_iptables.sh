@@ -18,15 +18,7 @@
 # work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
 # things out for your specific system
 #
-# Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
-# restore old rules if necessary - included in the repo.
-if [ -f "/tmp/original_iptables.rules" ]; then
-	today_date=$( date +%I_%M_%b_%d_%Y)
-	iptables-save > /tmp/${today_date}_iptables.rules
-else 
-	iptables-save > /tmp/original_iptables.rules
-fi
-
+#
 # Policy Definitions:
 # Accept – Allow the connection.
 #
@@ -39,7 +31,7 @@ fi
 ################## VARIABLES ##################
 
 # Allow OpenVPN to establish? YES/NO
-allowVPN=NO
+allowVPN=YES
 # Allow inbound pings? YES/NO
 allowPINGS=NO
 # Allow inbound SSH? YES/NO
@@ -47,12 +39,12 @@ allowSSH=NO
 # Allow inbound traffic on port 80/443? YES/NO
 allowHTTP=NO
 # Allow inbound/outbound torrent traffic? YES/NO
-allowTorrents=NO
+allowTorrents=YES
 
 # What should the default input policy for ipv4 be? DROP, REJECT, or ACCEPT?
 inputPolicy=DROP
 # What should the default out policy for ipv4 be? DROP, REJECT, or ACCEPT?
-outputPolicy=DROP
+outputPolicy=ACCEPT
 # What should the default forwarding policy for ipv4 be? DROP, REJECT, or ACCEPT?
 forwardPolicy=DROP
 
@@ -68,7 +60,7 @@ inNewConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? YES/NO
-enableOutPorts=NO
+enableOutPorts=YES
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -76,7 +68,7 @@ enableOutPorts=NO
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("")
+enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
 
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -101,6 +93,42 @@ TCPBurstEst=50
 ################################################################
 # Here be dragons! Be warned about venturing beyond this point #
 ################################################################
+
+# Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
+# restore old rules if necessary - included in the repo.
+if [ -f "/tmp/original_iptables.rules" ]; then
+	today_date=$( date +%I_%M_%b_%d_%Y)
+	iptables-save > /tmp/${today_date}_iptables.rules
+else 
+	iptables-save > /tmp/original_iptables.rules
+fi
+
+# fn_distro()
+# Modified function from below, purpose is to detect which distribution is running so
+# the rules may be saved in a way for each distribution as to work on a wider range of
+# systems rather then just Gentoo.
+# From: https://danielgibbs.co.uk/2013/04/bash-how-to-detect-os/
+fn_distro(){
+	arch=$(uname -m)
+	kernel=$(uname -r)
+	if [ -f /etc/lsb-release ]; then
+		echo " * Saving all settings"
+		/etc/init.d/iptables save
+		/etc/init.d/ip6tables save
+	elif [ -f /etc/debian_version ]; then
+		echo " * Saving all settings"
+		iptables-save > /etc/iptables/rules.v4
+		ip6tables-save > /etc/iptables/rules.v6
+	elif [ -f /etc/redhat-release ]; then
+		echo " * Saving all settings"
+		iptables-save > /etc/sysconfig/iptables
+		ip6tables-save > /etc/sysconfig/ip6tables
+	else
+		echo "Warning: Your distribution was unable to be detected which means the"
+		echo "iptables rules are unable to be automatically saved and made persistent."
+		echo "You will need to search of to save them for your distribution - sorry." 
+	fi
+}
 
 # Flush old rules, old custom tables
 echo "* Flushing old rules"
@@ -399,7 +427,5 @@ ip6tables -A FORWARD -j DROP
 
 ##################################################
 
-echo " * Saving all settings"
-/etc/init.d/iptables save
-/etc/init.d/ip6tables save
+fn_distro
 
