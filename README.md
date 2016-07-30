@@ -1,18 +1,17 @@
 Purpose
 ===
 
-This script will stop most port scanning attempts, UDP Floods, SYN Floods, TCP Floods, 
-Handshake Exploits, XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. 
+This script will stop most UDP Floods, SYN Floods, TCP Floods, Handshake Exploits
+XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally 
+types of connections that are allowed in or out over a particular port etc is restricted to the
+following, operating in a default deny for all input, output, and forwarding tables:  
 
-Additionally types of connections that are allowed in or out over a particular port etc is 
-restricted to the following, operating in a default deny for all input, output, and forwarding tables:  
-
-- Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
-- Denies all uninitiated ipv6 inbound connections
-- Drops inbound pings (if desired), allows outbound for both ipv4 and ipv6
-- Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
+* Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
+* Denies all uninitiated ipv6 inbound connections
+* Drops inbound pings, allows outbound for both ipv4 and ipv6
+* Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
 coming inbound
-- Allows new and established outbound connections for both ipv4 and ipv6
+* Allows new and established outbound connections for both ipv4 and ipv6          
 
 Additonal ports that might be required such as 6667 for IRC can be added, in the variables section
 below I will make examples to make adding new ports for inbound and/or outbound connections easier.
@@ -26,43 +25,50 @@ Setting the variables
 ===
 
 Near the top of the script there is a variables section, this requires a little bit of configuration
-to adjust it to your specific needs. I'll outline some example changes below.
+to adjust it to your specific needs. I'll outline some examples below for what to expect and what this
+series of options requires
 
-- The first set of variables are simple yes/no answers asking you if you want to allow certain
-things to occur.
+- The first set of variables are simple yes/no questions which outline whether a specific thing to be 
+allowed or blocked depending which question
 
 ```
 # Allow OpenVPN to establish? YES/NO
 allowVPN=NO
 ```
 
-- The following is askin the default behavior for each chain, you may enter drop, reject, or accept here
+- The following is asking the default behavior for each type of table. As shown inbound, outbound, and
+forwarding chains for both ipv4 and ipv6 accept a DROP, REJECT, or ACCEPT here allowing granular configuration
 
 ```
-# What should the default input policy for ipv4 be? DROP, REJECT, or ACCEPT?
+####################################################################################################
+# The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
+# Read the definitions above to aid in deciding what to enter
+####################################################################################################
+# What should the default input policy for ipv4 be?
 inputPolicy=DROP
-# What should the default out policy for ipv4 be? DROP, REJECT, or ACCEPT?
+# What should the default outbound policy for ipv4 be?
 outputPolicy=ACCEPT
-# What should the default forwarding policy for ipv4 be? DROP, REJECT, or ACCEPT?
+# What should the default forwarding policy for ipv4 be?
 forwardPolicy=DROP
+# What should the default input policy for ipv6 be?
+ipv6InputPolicy=DROP
+# What should the default out policy for ipv6 be?
+ipv6OutputPolicy=DROP
+# What should the default forwarding policy for ipv6 be?
+ipv6ForwardPolicy=DROP
 ```
 
-- The next bit consists of two arrays, they are for different inbound/output and connection states. These
-are each enabled by their corresponding enable option by typing YES/NO where asked.
+- The next bit consists of two arrays, they are for each inbound and outbound ports. These can be enabled
+or disabled by setting 'YES' or 'NO' to each one individually. 
 
 The first is for allowing new inbound connections over a specific port. An example of this is allowing
 someone to SSH into your machine. So you might enter port 22 in this section to allow that through
 
-The second, this is allowing outbound new and established connections to get out of the machine. By
-default ports 80, 443, 22, 53, 67/68 and outbound pings are allowed so regular function can be allowed.
-Anything extra such as 6667 for IRC must be entered here to be allowed out. 
-
-Additionally, ports entered in this array are entered into the input chain to allow established and related 
-connections back in on that port. This is required as the connections would otherwise be DROPPED or REJECTED
-by the input policy by default behavior.
+The second, this is allowing outbound new and established connections to get out of the machine. Anything 
+extra such as 6667 for IRC must be entered here to be allowed out. 
 
 - In the event you changed your default ports or use a different torrent client then transmission etc
-you may change some default ports in this section
+you may change the default ports in this section here
 
 ```
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
@@ -78,7 +84,9 @@ TORRENTS=51413
 - Next is setting your interface names. You can check what yours are by issuing 'ifconfig' in your terminal
 
 ```
-# Change accordingly to your interface naming scheme and the ones you are using.
+# Change accordingly to your interface naming scheme and the interfaces you are using.
+# Default is the 'old' naming scheme for Linux boxes, change to the new or BSD style if
+# required for your box
 ETH=eth0
 WLAN=wlan0
 TUN=tun0
