@@ -18,7 +18,7 @@
 # work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
 # things out for your specific system
 #
-#
+###############################################
 # Policy Definitions:
 # Accept – Allow the connection.
 #
@@ -40,20 +40,34 @@ allowSSH=NO
 allowHTTP=NO
 # Allow inbound/outbound torrent traffic? YES/NO
 allowTorrents=NO
+# Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? YES/NO
+internalForward=NO
+# Disable IPv6 completely (YES) or use the basic iptables configuration included (NO)?
+# If set to YES then you should also assure to set the IPv6 policy below to either DROP or REJECT
+disableIPv6=NO
 
-# What should the default input policy for ipv4 be? DROP, REJECT, or ACCEPT?
+####################################################################################################
+# The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
+# Read the definitions above to aid in deciding what to enter
+####################################################################################################
+# What should the default input policy for ipv4 be?
 inputPolicy=DROP
-# What should the default out policy for ipv4 be? DROP, REJECT, or ACCEPT?
+# What should the default outbound policy for ipv4 be?
 outputPolicy=DROP
-# What should the default forwarding policy for ipv4 be? DROP, REJECT, or ACCEPT?
+# What should the default forwarding policy for ipv4 be?
 forwardPolicy=DROP
+# What should the default input policy for ipv6 be?
+ipv6InputPolicy=DROP
+# What should the default out policy for ipv6 be?
+ipv6OutputPolicy=DROP
+# What should the default forwarding policy for ipv6 be?
+ipv6ForwardPolicy=DROP
 
 # Do you want to enable the inNewConnection array to have the script input the entered ports
 # into iptables? YES/NO
 enableInNewConnection=NO
 # Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
 # establish. As an example, if you want NEW uninitiated inbound NFS sessions to be allowed, you'd put 111. 
-# Note: This is seperate from the YES/NO questions above
 #
 # Example: inNewConnection=("5900" "111") 
 inNewConnection=("")
@@ -65,7 +79,7 @@ enableOutPorts=NO
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
 #
-# These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP
+# These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
 enableOutboundConnections=("")
@@ -79,19 +93,22 @@ SSL=443
 SSH=22
 TORRENTS=51413
 
-# Change accordingly to your interface naming scheme and the ones you are using.
+# Change accordingly to your interface naming scheme and the interfaces you are using.
+# Default is the 'old' naming scheme for Linux boxes, change to the new or BSD style if
+# required for your box
 ETH=eth0
 WLAN=wlan0
 TUN=tun0
 
-#TCPBurstNew: # of Packets a new connection can send in 1 request
-#TCPBurstEst: # of Packets an existing connection can send in 1 request
+# TCPBurstNew: # of Packets a new connection can send in 1 request
+# TCPBurstEst: # of Packets an existing connection can send in 1 request
+# IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
 TCPBurstNew=200
 TCPBurstEst=50
-# IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
 
 ################################################################
-# Here be dragons! Be warned about venturing beyond this point #
+# Warning: For the average person it is not recommended to touch
+# the following.
 ################################################################
 
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
@@ -126,11 +143,15 @@ fn_distro(){
 	else
 		echo "Warning: Your distribution was unable to be detected which means the"
 		echo "iptables rules are unable to be automatically saved and made persistent."
-		echo "You will need to search of to save them for your distribution - sorry." 
+		echo "You will need to search of how to save them for your distribution." 
+		echo
+		echo "Please report this error! Include which distribution you are using"
 	fi
 }
 
 # Flush old rules, old custom tables
+# Note: If there is an error deleting existing chains and you have modified this script
+# then assure to remove references to them first
 echo "* Flushing old rules"
 iptables --flush
 iptables --delete-chain
@@ -139,19 +160,23 @@ ip6tables --flush
 ip6tables --delete-chain
 
 # IPv4 default policies
-echo "* Setting default policies"
+echo "* Setting default policies for input, outbound, and forwarding tables"
 iptables -P INPUT $inputPolicy
 iptables -P OUTPUT $outputPolicy
 iptables -P FORWARD $forwardPolicy
 
 # IPv6 default policies
-ip6tables -P INPUT DROP
-ip6tables -P OUTPUT DROP
-ip6tables -P FORWARD DROP
+ip6tables -P INPUT $ipv6InputPolicy
+ip6tables -P OUTPUT $ipv6OutputPolicy
+ip6tables -P FORWARD $ipv6ForwardPolicy
 
 ##################################################
 ###############       INPUT        ###############
 ##################################################
+
+echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
+iptables -A INPUT -i lo+ -j ACCEPT
+iptables -A INPUT ! -i lo+ -d 127.0.0.0/8 -j REJECT
 
 echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
 # All TCP sessions should begin with SYN
@@ -205,23 +230,8 @@ iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j DROP
 iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP 
 iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j DROP
 
-echo "* Now we're going to enable RST Flood Protection"
+echo "* Enabling RST Flood Protection"
 iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
-
-echo "* Protection from Port Scans"
-# Attacking IP will be locked for 24 hours (3600 x 24 = 86400 Seconds)
-iptables -A INPUT -m recent --name portscan --rcheck --seconds 86400 -j DROP
-iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
-
-echo "* Banned IP addresses are removed from the list every 24 Hours"
-iptables -A INPUT -m recent --name portscan --remove
-iptables -A FORWARD -m recent --name portscan --remove
-
-echo "* Creating rules to add scanners to the PortScanner list and log the attempt"
-iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG
-iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
 echo "* Allowing established DNS requests back in"
 iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
@@ -242,7 +252,7 @@ fi
 # This occurs if allowSSH is entered as 'Yes' to allow incoming SSH connections
 if  [[ $allowSSH == YES ]] || [[ $allowSSH == yes ]]; then
 	echo "* Allowing inbound SSH sessions"
-	iptables -A INPUT -p tcp --dport $SSH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 fi
 
 # This occurs if allowHTTP is entered as 'Yes' to allow new incoming HTTP(S) connections.
@@ -301,8 +311,11 @@ fi
 iptables -A OUTPUT -o lo+ -j DROP
 
 # Allows OpenVPN sessions to establish if allowVPN is selected as 'Yes'
+# This may or may not work with other VPN types if they use a different port. Either copy
+# and paste this, change the variable to your own, change the ports, etc or change the ports in
+# this one if you are not using OpenVPN at all
 if  [[ $allowVPN == YES ]] || [[ $allowVPN == yes ]]; then
-	echo "* Allowing OpenVPN"
+	echo "* Allowing OpenVPN in and outbound"
 	iptables -A OUTPUT -o tun+ -j ACCEPT
 	iptables -A INPUT -p udp --sport 1194:1195 -j ACCEPT
 	
@@ -339,22 +352,22 @@ if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
 	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
 fi
 
-echo "* Allowing DNS out over port $DNS"
+echo "* Allowing DNS over port $DNS outbound"
 iptables -A OUTPUT -p udp -m udp --dport $DNS -j ACCEPT
 
-echo "* Allowing HTTP out over port $WEB"
+echo "* Allowing HTTP over port $WEB outbound"
 iptables -A OUTPUT -p tcp -m tcp --dport $WEB -j ACCEPT
 
-echo "* Allowing HTTPS Port $SSL"
+echo "* Allowing HTTPS Port $SSL outbound"
 iptables -A OUTPUT -p tcp -m tcp --dport $SSL -j ACCEPT
 
-echo "* Allowing SSH Port $SSH"
+echo "* Allowing SSH Port $SSH outbound"
 iptables -A OUTPUT -p tcp -m tcp --dport $SSH -j ACCEPT
 
-echo "* Allowing Outgoing PING Type ICMP Requests, So we don't break things."
+echo "* Allowing outbound PING Type 8 ICMP Requests, so we don't break things."
 iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 
-echo "* Allowing DHCP"
+echo "* Allowing DHCP (Broadcasts) outbound"
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
 if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == drop ]]; then
@@ -371,11 +384,15 @@ fi
 ###############       FORWARD       ##############
 ##################################################
 
-# accept forwarding from tun0 to eth0/wlan0 and vice versa:
-iptables -A FORWARD -i $ETH -o $TUN -j ACCEPT
-iptables -A FORWARD -i $TUN -o $ETH -j ACCEPT
-iptables -A FORWARD -i $WLAN -o $TUN -j ACCEPT
-iptables -A FORWARD -i $TUN -o $WLAN -j ACCEPT
+# Prevent internal forwarding between interfaces as it is a risk that traffic may try
+# to get out a different interface if available to circumvent blocking rules in place
+# on another interface
+if  [[ $internalForward == NO ]] || [[ $internalForward == no ]]; then
+	iptables -A FORWARD -i $ETH -o $TUN -j DROP
+	iptables -A FORWARD -i $TUN -o $ETH -j DROP
+	iptables -A FORWARD -i $WLAN -o $TUN -j DROP
+	iptables -A FORWARD -i $TUN -o $WLAN -j DROP
+fi
 
 if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
 	echo "* DROPPING all other forwarded traffic"
@@ -388,43 +405,61 @@ if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
 fi
 
 ##################################################
-###############     POSTROUTING     ##############
-##################################################
-
-iptables -t nat -A POSTROUTING -o $TUN -j MASQUERADE
-
-##################################################
 ##############     IPv6 section     ##############
 ##################################################
 
-ip6tables -F
-ip6tables -X
-ip6tables -t mangle -F
-ip6tables -t mangle -X
- 
-ip6tables -A INPUT -i lo -j DROP
-ip6tables -A OUTPUT -o lo -j ACCEPT
- 
-echo "* IPv6: Allow full outbound connection but no inbound"
-ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
-ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
- 
-echo "* IPv6: ICMP ping is being allowed outbound"
-ip6tables -A OUTPUT -o $ETH -p ipv6-icmp -j ACCEPT
+if  [[ $disableIPv6 == NO ]] || [[ $internalForward == no ]]; then	 
+	echo "* IPv6: Allow full outbound connection but no inbound"
+	ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
+	ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	
+	ip6tables -A INPUT -i $WLAN -m state --state ESTABLISHED,RELATED -j ACCEPT
+	ip6tables -A OUTPUT -o $WLAN -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	 
+	echo "* IPv6: ICMP ping is being allowed outbound"
+	ip6tables -A OUTPUT -o $ETH -p ipv6-icmp -j ACCEPT
 
-if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
-	echo "* IPv6: ICMP ping is being dropped inbound"
-	ip6tables -A INPUT -i $ETH -p ipv6-icmp -j DROP
-else
-	echo "* IPv6: ICMP ping is being accepted inbound"
-	ip6tables -A INPUT -i $ETH -p ipv6-icmp -j ACCEPT
+	if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
+		echo "* IPv6: ICMP ping is being dropped inbound"
+		ip6tables -A INPUT -i $ETH -p ipv6-icmp -j DROP
+	else
+		echo "* IPv6: ICMP ping is being accepted inbound"
+		ip6tables -A INPUT -i $ETH -p ipv6-icmp -j ACCEPT
+	fi
 fi
 
-echo "* IPv6: Dropping all other traffic"
-ip6tables -A INPUT -j DROP
-ip6tables -A OUTPUT -j DROP
-ip6tables -A FORWARD -j DROP
+# Input for ipv6
+if  [[ $ipv6InputPolicy == DROP ]] || [[ $ipv6InputPolicy == drop ]]; then
+	echo "* Ipv6: Dropping all other input traffic"
+	ip6tables -A INPUT -j DROP
+fi
 
+if  [[ $ipv6InputPolicy == REJECT ]] || [[ $ipv6InputPolicy == reject ]]; then
+	echo "* Ipv6: Rejecting all other input traffic"
+	ip6tables -A INPUT -j REJECT
+fi
+
+# Output for ipv6
+if  [[ $ipv6OutputPolicy == DROP ]] || [[ $ipv6OutputPolicy == drop ]]; then
+	echo "* Ipv6: Dropping all other outbound traffic"
+	ip6tables -A OUTPUT -j DROP
+fi
+
+if  [[ $ipv6OutputPolicy == REJECT ]] || [[ $ipv6OutputPolicy == reject ]]; then
+	echo "* Ipv6: Rejecting all other outbound traffic"
+	ip6tables -A OUTPUT -j REJECT
+fi
+
+# Forwarding for ipv6
+if  [[ $ipv6ForwardPolicy == DROP ]] || [[ $ipv6ForwardPolicy == drop ]]; then
+	echo "* Ipv6: Dropping all other forwarded traffic"
+	ip6tables -A FORWARD -j DROP
+fi
+
+if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
+	echo "* Ipv6: Rejecting all other forwarded traffic"
+	ip6tables -A FORWARD -j REJECT
+fi
 ##################################################
 
 fn_distro
