@@ -20,6 +20,9 @@ below I will make examples to make adding new ports for inbound and/or outbound 
 > This script requires some tuning to be optimized for a least privledge sort of policy where things
 > work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
 > things out for your specific system
+>
+> Additonally, many of the default behaviors can be overridden with the given variables at the top of
+> the script if you do not like it so restricted.
 
 Setting the variables
 ===
