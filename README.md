@@ -99,6 +99,12 @@ TUN=tun0
 How to use
 ===
 
+- Lets get the source
+
+```
+git clone https://gitlab.com/huuteml/restricted_iptables.git && cd restricted_iptables
+```
+
 - This will make the script readable, writable, and executable to root and your user. 
 
 ```

@@ -31,7 +31,7 @@
 ################## VARIABLES ##################
 
 # Allow OpenVPN to establish? YES/NO
-allowVPN=NO
+allowVPN=YES
 # Allow inbound pings? YES/NO
 allowPINGS=NO
 # Allow inbound SSH? YES/NO
@@ -39,12 +39,12 @@ allowSSH=NO
 # Allow inbound traffic on port 80/443? YES/NO
 allowHTTP=NO
 # Allow inbound/outbound torrent traffic? YES/NO
-allowTorrents=NO
+allowTorrents=YES
 # Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? YES/NO
 internalForward=NO
 # Disable IPv6 completely (YES) or use the basic iptables configuration included (NO)?
 # If set to YES then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=NO
+disableIPv6=YES
 
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
@@ -53,7 +53,7 @@ disableIPv6=NO
 # What should the default input policy for ipv4 be?
 inputPolicy=DROP
 # What should the default outbound policy for ipv4 be?
-outputPolicy=DROP
+outputPolicy=ACCEPT
 # What should the default forwarding policy for ipv4 be?
 forwardPolicy=DROP
 # What should the default input policy for ipv6 be?
@@ -74,7 +74,7 @@ inNewConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? YES/NO
-enableOutPorts=NO
+enableOutPorts=YES
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -82,7 +82,7 @@ enableOutPorts=NO
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("")
+enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
 
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -128,6 +128,7 @@ fi
 fn_distro(){
 	arch=$(uname -m)
 	kernel=$(uname -r)
+	voidLinux=$(cat /proc/version | cut -d " " -f 4)
 	if [ -f /etc/lsb-release ]; then
 		echo " * Saving all settings"
 		/etc/init.d/iptables save
@@ -140,6 +141,9 @@ fn_distro(){
 		echo " * Saving all settings"
 		iptables-save > /etc/sysconfig/iptables
 		ip6tables-save > /etc/sysconfig/ip6tables
+	elif [ $voidLinux == "(xbps-builder@build.voidlinux.eu)" ]; then
+		iptables-save > /etc/iptables/iptables.rules
+		ip6tables-save > /etc/iptables/ip6tables.rules
 	else
 		echo "Warning: Your distribution was unable to be detected which means the"
 		echo "iptables rules are unable to be automatically saved and made persistent."
