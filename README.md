@@ -31,12 +31,27 @@ Near the top of the script there is a variables section, this requires a little 
 to adjust it to your specific needs. I'll outline some examples below for what to expect and what this
 series of options requires
 
-- The first set of variables are simple yes/no questions which outline whether a specific thing to be 
+- The first set of variables are simple Y or N questions which outline whether a specific thing to be 
 allowed or blocked depending which question
 
 ```
-# Allow OpenVPN to establish? YES/NO
-allowVPN=NO
+# Allow OpenVPN to establish? Y/N
+allowVPN=Y
+# Allow inbound pings? Y/N
+allowPINGS=N
+# Allow inbound SSH? Y/N
+allowSSH=N
+# Allow inbound traffic on port 80/443? Y/N
+allowHTTP=N
+# Allow inbound/outbound torrent traffic? Y/N
+allowTorrents=Y
+# Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
+internalForward=N
+# Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
+# If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
+disableIPv6=Y
+# Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
+enableQuic=Y
 ```
 
 - The following is asking the default behavior for each type of table. As shown inbound, outbound, and
@@ -62,7 +77,7 @@ ipv6ForwardPolicy=DROP
 ```
 
 - The next bit consists of two arrays, they are for each inbound and outbound ports. These can be enabled
-or disabled by setting 'YES' or 'NO' to each one individually. 
+or disabled by setting 'Y' or 'N' to each one individually. 
 
 The first is for allowing new inbound connections over a specific port. An example of this is allowing
 someone to SSH into your machine. So you might enter port 22 in this section to allow that through

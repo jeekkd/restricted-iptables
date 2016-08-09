@@ -30,30 +30,33 @@
 
 ################## VARIABLES ##################
 
-# Allow OpenVPN to establish? YES/NO
-allowVPN=YES
-# Allow inbound pings? YES/NO
-allowPINGS=NO
-# Allow inbound SSH? YES/NO
-allowSSH=NO
-# Allow inbound traffic on port 80/443? YES/NO
-allowHTTP=NO
-# Allow inbound/outbound torrent traffic? YES/NO
-allowTorrents=YES
-# Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? YES/NO
-internalForward=NO
-# Disable IPv6 completely (YES) or use the basic iptables configuration included (NO)?
-# If set to YES then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=YES
+# Allow OpenVPN to establish? Y/N
+allowVPN=N
+# Allow inbound pings? Y/N
+allowPINGS=N
+# Allow inbound SSH? Y/N
+allowSSH=N
+# Allow inbound traffic on port 80/443? Y/N
+allowHTTP=N
+# Allow inbound/outbound torrent traffic? Y/N
+allowTorrents=N
+# Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
+internalForward=N
+# Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
+# If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
+disableIPv6=N
+# Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
+enableQuic=N
 
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
-# Read the definitions above to aid in deciding what to enter
+# 1. Remember to read the definitions above to help in deciding what to enter
+# 2. Type your selection in UPPER CASE
 ####################################################################################################
 # What should the default input policy for ipv4 be?
 inputPolicy=DROP
 # What should the default outbound policy for ipv4 be?
-outputPolicy=ACCEPT
+outputPolicy=DROP
 # What should the default forwarding policy for ipv4 be?
 forwardPolicy=DROP
 # What should the default input policy for ipv6 be?
@@ -64,8 +67,8 @@ ipv6OutputPolicy=DROP
 ipv6ForwardPolicy=DROP
 
 # Do you want to enable the inNewConnection array to have the script input the entered ports
-# into iptables? YES/NO
-enableInNewConnection=NO
+# into iptables? Y/N
+enableInNewConnection=N
 # Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
 # establish. As an example, if you want NEW uninitiated inbound NFS sessions to be allowed, you'd put 111. 
 #
@@ -73,8 +76,8 @@ enableInNewConnection=NO
 inNewConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
-# into iptables? YES/NO
-enableOutPorts=YES
+# into iptables? Y/N
+enableOutPorts=N
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -82,7 +85,7 @@ enableOutPorts=YES
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
+enableOutboundConnections=("")
 
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -240,40 +243,48 @@ iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --
 echo "* Allowing established DNS requests back in"
 iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# This occurs if allowTorrents was entered as 'Yes' to allow torrent traffic
-if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
+# This occurs if allowTorrents was entered as 'Y' to allow torrent traffic
+if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
 	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
 	iptables -A INPUT -p tcp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
 	iptables -A INPUT -p udp --dport  "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
 fi
 
 # This occurs if allowPINGS was entered as 'No' to block all incoming pings
-if  [[ $allowPINGS == NO ]] || [[ $allowPINGS == no ]]; then
+if  [[ $allowPINGS == "N" ]] || [[ $allowPINGS == "n" ]]; then
 	echo "* Block all incoming pings, although they should be blocked already"
 	iptables -A INPUT -p icmp -m icmp --icmp-type 8 -j REJECT --reject-with icmp-proto-unreachable
 fi
 
-# This occurs if allowSSH is entered as 'Yes' to allow incoming SSH connections
-if  [[ $allowSSH == YES ]] || [[ $allowSSH == yes ]]; then
+# This occurs if allowSSH is entered as 'Y' to allow incoming SSH connections
+if  [[ $allowSSH == "Y" ]] || [[ $allowSSH == "y" ]]; then
 	echo "* Allowing inbound SSH sessions"
 	iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 fi
 
-# This occurs if allowHTTP is entered as 'Yes' to allow new incoming HTTP(S) connections.
+# This occurs if allowHTTP is entered as 'Y' to allow new incoming HTTP(S) connections.
 # This is needed for things such as web servers. Else it will only allow established connections
 # back in on ports 80, 443
-if  [[ $allowHTTP == YES ]] || [[ $allowHTTP == yes ]]; then
+if  [[ $allowHTTP == "Y" ]] || [[ $allowHTTP == "y" ]]; then
 	echo "* Allowing inbound HTTP(S) traffic"
 	iptables -A INPUT -p tcp --dport "$HTTP" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -p tcp --dport "$SSL" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 else
+	echo "* Allowing regular HTTP(S) traffic back in"
 	iptables -A INPUT -p tcp -m tcp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -p tcp -m tcp --dport "$WEB" -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
-# If enableInNewConnection is 'Yes' this will create rules for all entered ports in the inNewConnection
+# If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
+# Google is experimenting with for Google chrome and its other services to eventually replace TCP
+if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
+	echo "* Allowing UDP traffic back in on port 443 for QUIC support"
+	iptables -A INPUT -p udp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
+fi
+
+# If enableInNewConnection is 'Y' this will create rules for all entered ports in the inNewConnection
 # array. This for for allowing new and established connections in on the entered ports.
-if  [[ $enableInNewConnection == YES ]] || [[ $enableInNewConnection == yes ]]; then
+if  [[ $enableInNewConnection == "Y" ]] || [[ $enableInNewConnection == "y" ]]; then
 	inNewConnectionLength=${#inNewConnection[@]}
 	adjustedLength=$(( inNewConnectionLength - 1 ))
 
@@ -287,7 +298,7 @@ fi
 # This is similar to the above, except it uses the enableOutboundConnections array. The purpose of this
 # is to allow established and related connections back in on outbound connections using the same ports 
 # entered into the array
-if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
+if  [[ $enableOutPorts == "Y" ]] || [[ $enableOutPorts == "y" ]]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
@@ -314,31 +325,29 @@ fi
 
 iptables -A OUTPUT -o lo+ -j DROP
 
-# Allows OpenVPN sessions to establish if allowVPN is selected as 'Yes'
+# Allows OpenVPN sessions to establish if allowVPN is selected as 'Y'
 # This may or may not work with other VPN types if they use a different port. Either copy
 # and paste this, change the variable to your own, change the ports, etc or change the ports in
 # this one if you are not using OpenVPN at all
-if  [[ $allowVPN == YES ]] || [[ $allowVPN == yes ]]; then
+if  [[ $allowVPN == "Y" ]] || [[ $allowVPN == "y" ]]; then
 	echo "* Allowing OpenVPN in and outbound"
-	iptables -A OUTPUT -o tun+ -j ACCEPT
-	iptables -A INPUT -p udp --sport 1194:1195 -j ACCEPT
 	
-	iptables -A OUTPUT -o tun+ -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A OUTPUT -o eth+ -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -o $TUN -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -o $ETH -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	
-	iptables -A OUTPUT -o tun+ -p tcp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A OUTPUT -o eth+ -p tcp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -o $TUN -p tcp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -o $ETH -p tcp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	
-	iptables -A OUTPUT -o tun+ -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A OUTPUT -o eth+ -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -o $TUN -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -o $ETH -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	
-	iptables -A OUTPUT -o tun+ -p udp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A OUTPUT -o eth+ -p udp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -o $TUN -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -o $ETH -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 fi
 
-# If enableOutPorts is selected as 'Yes' then the entered ports in the enableOutboundConnections array
+# If enableOutPorts is selected as 'Y' then the entered ports in the enableOutboundConnections array
 # will have rules created to allow those ports to make outbound connections
-if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
+if  [[ $enableOutPorts == "Y" ]] || [[ $enableOutPorts == "y" ]]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
@@ -349,11 +358,17 @@ if  [[ $enableOutPorts == YES ]] || [[ $enableOutPorts == yes ]]; then
 	done
 fi
 
-# If allowTorrents has been set to 'Yes' then torrent traffic will be allowed out on both udp and tcp
+# If allowTorrents has been set to 'Y' then torrent traffic will be allowed out on both udp and tcp
 # for the entered torrent port
-if  [[ $allowTorrents == YES ]] || [[ $allowTorrents == YES ]]; then
+if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
 	iptables -A OUTPUT -p tcp -m tcp --dport $TORRENTS -j ACCEPT
 	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
+fi
+
+# If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
+# Google is experimenting with for Google chrome and its other services to eventually replace TCP
+if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
+	iptables -A OUTPUT -p udp -m udp --dport $SSL -j ACCEPT
 fi
 
 echo "* Allowing DNS over port $DNS outbound"
@@ -391,7 +406,7 @@ fi
 # Prevent internal forwarding between interfaces as it is a risk that traffic may try
 # to get out a different interface if available to circumvent blocking rules in place
 # on another interface
-if  [[ $internalForward == NO ]] || [[ $internalForward == no ]]; then
+if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then
 	iptables -A FORWARD -i $ETH -o $TUN -j DROP
 	iptables -A FORWARD -i $TUN -o $ETH -j DROP
 	iptables -A FORWARD -i $WLAN -o $TUN -j DROP
@@ -412,7 +427,7 @@ fi
 ##############     IPv6 section     ##############
 ##################################################
 
-if  [[ $disableIPv6 == NO ]] || [[ $internalForward == no ]]; then	 
+if  [[ $disableIPv6 == N ]] || [[ $internalForward == n ]]; then	 
 	echo "* IPv6: Allow full outbound connection but no inbound"
 	ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
 	ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
