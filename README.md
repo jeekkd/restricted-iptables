@@ -24,6 +24,19 @@ below I will make examples to make adding new ports for inbound and/or outbound 
 > Additonally, many of the default behaviors can be overridden with the given variables at the top of
 > the script if you do not like it so restricted.
 
+Pictures
+===
+
+![daulton.ca](https://daulton.ca//lib/plugins/ckgedit/fckeditor/userfiles/image/bash_script_pictures/iptables.png)
+
+By default before each time the script is ran your existing rules are saved. There is a companion script 
+called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
+set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
+still it will create time and date stamped rules files each time after to give you a selection of which 
+point in time to restore your rules to.
+
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:restore_complete.png?w=600&h=133&tok=60f97e)
+
 Setting the variables
 ===
 
