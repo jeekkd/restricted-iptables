@@ -31,7 +31,7 @@
 ################## VARIABLES ##################
 
 # Allow OpenVPN to establish? Y/N
-allowVPN=N
+allowVPN=Y
 # Allow inbound pings? Y/N
 allowPINGS=N
 # Allow inbound SSH? Y/N
@@ -39,14 +39,14 @@ allowSSH=N
 # Allow inbound traffic on port 80/443? Y/N
 allowHTTP=N
 # Allow inbound/outbound torrent traffic? Y/N
-allowTorrents=N
+allowTorrents=Y
 # Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
 internalForward=N
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=N
+disableIPv6=Y
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=N
+enableQuic=Y
 
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
@@ -56,7 +56,7 @@ enableQuic=N
 # What should the default input policy for ipv4 be?
 inputPolicy=DROP
 # What should the default outbound policy for ipv4 be?
-outputPolicy=DROP
+outputPolicy=ACCEPT
 # What should the default forwarding policy for ipv4 be?
 forwardPolicy=DROP
 # What should the default input policy for ipv6 be?
@@ -77,7 +77,7 @@ inNewConnection=("")
 
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? Y/N
-enableOutPorts=N
+enableOutPorts=Y
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -85,7 +85,7 @@ enableOutPorts=N
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("")
+enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
 
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -102,6 +102,11 @@ TORRENTS=51413
 ETH=eth0
 WLAN=wlan0
 TUN=tun0
+
+# Disable traffic in and out of an interface. Answer Y or N here
+disableEth=N
+disableWlan=Y
+disableTun=N
 
 # TCPBurstNew: # of Packets a new connection can send in 1 request
 # TCPBurstEst: # of Packets an existing connection can send in 1 request
@@ -133,18 +138,19 @@ fn_distro(){
 	kernel=$(uname -r)
 	voidLinux=$(cat /proc/version | cut -d " " -f 4)
 	if [ -f /etc/lsb-release ]; then
-		echo " * Saving all settings"
+		echo " * Saving all iptables settings"
 		/etc/init.d/iptables save
 		/etc/init.d/ip6tables save
 	elif [ -f /etc/debian_version ]; then
-		echo " * Saving all settings"
+		echo " * Saving all iptables settings"
 		iptables-save > /etc/iptables/rules.v4
 		ip6tables-save > /etc/iptables/rules.v6
 	elif [ -f /etc/redhat-release ]; then
-		echo " * Saving all settings"
+		echo " * Saving all iptables settings"
 		iptables-save > /etc/sysconfig/iptables
 		ip6tables-save > /etc/sysconfig/ip6tables
 	elif [ $voidLinux == "(xbps-builder@build.voidlinux.eu)" ]; then
+		echo " * Saving all iptables settings"
 		iptables-save > /etc/iptables/iptables.rules
 		ip6tables-save > /etc/iptables/ip6tables.rules
 	else
@@ -152,7 +158,8 @@ fn_distro(){
 		echo "iptables rules are unable to be automatically saved and made persistent."
 		echo "You will need to search of how to save them for your distribution." 
 		echo
-		echo "Please report this error! Include which distribution you are using"
+		echo "Please report this error! remember to include which distribution you are using"
+		echo "https://gitlab.com/huuteml/restricted_iptables"
 	fi
 }
 
@@ -180,6 +187,25 @@ ip6tables -P FORWARD $ipv6ForwardPolicy
 ##################################################
 ###############       INPUT        ###############
 ##################################################
+
+# Disable traffic into the specified interfaces
+# Ethernet
+if  [[ $disableEth == "Y" ]] || [[ $disableEth == "y" ]]; then
+	echo "* Disabling traffic input into $ETH"
+	iptables -A INPUT -i $ETH -j DROP
+fi
+
+# Wlan
+if  [[ $disableWlan == "Y" ]] || [[ $disableWlan == "y" ]]; then
+	echo "* Disabling traffic input into $WLAN"
+	iptables -A INPUT -i $WLAN -j DROP
+fi
+
+# Tun
+if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
+	echo "* Disabling traffic input into $TUN"
+	iptables -A INPUT -i $TUN -j DROP
+fi
 
 echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
 iptables -A INPUT -i lo+ -j ACCEPT
@@ -323,6 +349,25 @@ fi
 ###############       OUTPUT       ###############
 ##################################################
 
+# Disable traffic out of the specified interfaces depending on the answers given 
+# Ethernet
+if  [[ $disableEth == "Y" ]] || [[ $disableEth == "y" ]]; then
+	echo "* Disabling traffic outbound for $ETH"
+	iptables -A OUTPUT -o $ETH -j DROP
+fi
+
+# Wlan
+if  [[ $disableWlan == "Y" ]] || [[ $disableWlan == "y" ]]; then
+	echo "* Disabling traffic outbound for $WLAN"
+	iptables -A OUTPUT -o $WLAN -j DROP
+fi
+
+# Tun
+if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
+	echo "* Disabling traffic outbound for $TUN"
+	iptables -A OUTPUT -o $TUN -j DROP
+fi
+
 iptables -A OUTPUT -o lo+ -j DROP
 
 # Allows OpenVPN sessions to establish if allowVPN is selected as 'Y'
@@ -330,7 +375,7 @@ iptables -A OUTPUT -o lo+ -j DROP
 # and paste this, change the variable to your own, change the ports, etc or change the ports in
 # this one if you are not using OpenVPN at all
 if  [[ $allowVPN == "Y" ]] || [[ $allowVPN == "y" ]]; then
-	echo "* Allowing OpenVPN in and outbound"
+	echo "* Allowing OpenVPN traffic in and outbound"
 	
 	iptables -A OUTPUT -o $TUN -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	iptables -A OUTPUT -o $ETH -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
@@ -427,7 +472,26 @@ fi
 ##############     IPv6 section     ##############
 ##################################################
 
-if  [[ $disableIPv6 == N ]] || [[ $internalForward == n ]]; then	 
+# If disableIPv6 is set to yes but ipv6InputPolicy and related ipv6 policy were not also set to
+# DROP or REJECT then this will correct that so traffic is appropriately dropped
+if  [[ $disableIPv6 == Y ]] || [[ $disableIPv6 == y ]]; then	
+	# Input
+	if  [[ $ipv6InputPolicy == ACCEPT ]] || [[ $ipv6InputPolicy == accept ]]; then
+		ip6tables -A INPUT -j DROP
+	fi
+	
+	# Output
+	if  [[ $ipv6OutputPolicy == ACCEPT ]] || [[ $ipv6OutputPolicy == accept ]]; then
+		ip6tables -A OUTPUT -j DROP
+	fi
+	
+	# Forwarding
+	if  [[ $ipv6ForwardPolicy == ACCEPT ]] || [[ $ipv6ForwardPolicy == accept ]]; then
+		ip6tables -A FORWARD -j DROP
+	fi
+fi
+
+if  [[ $disableIPv6 == N ]] || [[ $disableIPv6 == n ]]; then	 
 	echo "* IPv6: Allow full outbound connection but no inbound"
 	ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
 	ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
@@ -481,5 +545,7 @@ if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
 fi
 ##################################################
 
+# Call fn_distro function to save iptables with detection for the correct distribution to
+# accomodate saving across many different types of system
 fn_distro
 
