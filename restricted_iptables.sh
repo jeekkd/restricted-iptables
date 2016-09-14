@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-
 # Written by: https://gitlab.com/u/huuteml
 # Website: https://daulton.ca
-# Purpose: This script will stop most port scanning attempts, UDP Floods, SYN Floods, TCP Floods, 
+#
+# This script will help stop most port scanning attempts, UDP Floods, SYN Floods, TCP Floods, 
 # Handshake Exploits, XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally 
 # types of connections that are allowed in or out over a particular port etc is restricted to the
-# following, operating in a default deny for all input, output, and forwarding tables:  
+# following, operating in a default deny for all inbound, outbound, and forwarding tables:  
 #
 # * Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
 # * Denies all uninitiated ipv6 inbound connections
@@ -15,10 +15,10 @@
 # * Allows new and established outbound connections for both ipv4 and ipv6          
 #
 # Note: This script requires some tuning to be optimized for a least privledge sort of policy where things
-# work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
-# things out for your specific system
+# work and are locked down and/or work the way you want. Don't expect to run this and be done, you'll need 
+# to continue reading and configure for your specific system and needs
 #
-###############################################
+####################################################################################################
 # Policy Definitions:
 # Accept – Allow the connection.
 #
@@ -27,45 +27,61 @@
 #
 # Reject – Don’t allow the connection, but send back an error. This is best if you don’t want a particular 
 # source to connect to your system, but you want them to know that your firewall blocked them.
-
-################## VARIABLES ##################
-
+#
+########################################## VARIABLES ################################################
+#
 # Allow OpenVPN to establish? Y/N
-allowVPN=Y
+allowVPN=N
+#
 # Allow inbound pings? Y/N
 allowPINGS=N
+#
 # Allow inbound SSH? Y/N
 allowSSH=N
+#
 # Allow inbound traffic on port 80/443? Y/N
 allowHTTP=N
+#
 # Allow inbound/outbound torrent traffic? Y/N
-allowTorrents=Y
+allowTorrents=N
+#
 # Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
 internalForward=N
+#
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=Y
+disableIPv6=N
+#
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=Y
-
+enableQuic=N
+#
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
 # 1. Remember to read the definitions above to help in deciding what to enter
 # 2. Type your selection in UPPER CASE
 ####################################################################################################
-# What should the default input policy for ipv4 be?
+# Default inbound policy for ipv4 be?
 inputPolicy=DROP
-# What should the default outbound policy for ipv4 be?
-outputPolicy=ACCEPT
-# What should the default forwarding policy for ipv4 be?
+#
+# Default outbound policy for ipv4
+outputPolicy=DROP
+#
+# Default forwarding policy for ipv4
 forwardPolicy=DROP
-# What should the default input policy for ipv6 be?
+#
+# Default inbound policy for ipv6
 ipv6InputPolicy=DROP
-# What should the default out policy for ipv6 be?
+#
+# Default outbound  policy for ipv6
 ipv6OutputPolicy=DROP
-# What should the default forwarding policy for ipv6 be?
+#
+# Default forwarding policy for ipv6
 ipv6ForwardPolicy=DROP
-
+#
+####################################################################################################
+# 									Opening ports section
+####################################################################################################
+#
 # Do you want to enable the inNewConnection array to have the script input the entered ports
 # into iptables? Y/N
 enableInNewConnection=N
@@ -74,10 +90,10 @@ enableInNewConnection=N
 #
 # Example: inNewConnection=("5900" "111") 
 inNewConnection=("")
-
+#
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? Y/N
-enableOutPorts=Y
+enableOutPorts=N
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -85,8 +101,8 @@ enableOutPorts=Y
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("6667" "8006" "2049" "111" "8080" "9091")
-
+enableOutboundConnections=("")
+#
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
 # Note: For your torrent client turn off random ports and select a port, then enter that here
@@ -105,7 +121,7 @@ TUN=tun0
 
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
-disableWlan=Y
+disableWlan=N
 disableTun=N
 
 # TCPBurstNew: # of Packets a new connection can send in 1 request
@@ -114,10 +130,10 @@ disableTun=N
 TCPBurstNew=200
 TCPBurstEst=50
 
-################################################################
-# Warning: For the average person it is not recommended to touch
+####################################################################################################
+# Warning: For most people it is not recommended to touch 
 # the following.
-################################################################
+####################################################################################################
 
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary - included in the repo.
@@ -128,12 +144,12 @@ else
 	iptables-save > /tmp/original_iptables.rules
 fi
 
-# fn_distro()
+# saveTables()
 # Modified function from below, purpose is to detect which distribution is running so
 # the rules may be saved in a way for each distribution as to work on a wider range of
 # systems rather then just Gentoo.
 # From: https://danielgibbs.co.uk/2013/04/bash-how-to-detect-os/
-fn_distro(){
+saveTables(){
 	arch=$(uname -m)
 	kernel=$(uname -r)
 	voidLinux=$(cat /proc/version | cut -d " " -f 4)
@@ -184,9 +200,9 @@ ip6tables -P INPUT $ipv6InputPolicy
 ip6tables -P OUTPUT $ipv6OutputPolicy
 ip6tables -P FORWARD $ipv6ForwardPolicy
 
-##################################################
-###############       INPUT        ###############
-##################################################
+####################################################################################################
+# 										INBOUND
+####################################################################################################
 
 # Disable traffic into the specified interfaces
 # Ethernet
@@ -206,6 +222,22 @@ if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
 	echo "* Disabling traffic input into $TUN"
 	iptables -A INPUT -i $TUN -j DROP
 fi
+
+# Attempt to block portscans
+# Anyone who tried to portscan us is locked out for an entire day.
+iptables -A INPUT   -m recent --name portscan --rcheck --seconds 86400 -j DROP
+iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
+
+# Once the day has passed, remove them from the portscan list
+iptables -A INPUT   -m recent --name portscan --remove
+iptables -A FORWARD -m recent --name portscan --remove
+
+# These rules add scanners to the portscan list, and log the attempt.
+iptables -A INPUT   -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
+iptables -A INPUT   -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
 echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
 iptables -A INPUT -i lo+ -j ACCEPT
@@ -345,9 +377,9 @@ if  [[ $inputPolicy == REJECT ]] || [[ $inputPolicy == reject ]]; then
 	iptables -A INPUT -j REJECT
 fi
 
-##################################################
-###############       OUTPUT       ###############
-##################################################
+####################################################################################################
+# 											OUTBOUND
+####################################################################################################
 
 # Disable traffic out of the specified interfaces depending on the answers given 
 # Ethernet
@@ -444,9 +476,9 @@ if  [[ $outputPolicy == REJECT ]] || [[ $outputPolicy == reject ]]; then
 	iptables -A OUTPUT -j REJECT
 fi
 
-##################################################
-###############       FORWARD       ##############
-##################################################
+####################################################################################################
+# 										FORWARDING
+####################################################################################################
 
 # Prevent internal forwarding between interfaces as it is a risk that traffic may try
 # to get out a different interface if available to circumvent blocking rules in place
@@ -468,9 +500,9 @@ if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
 	iptables -A FORWARD -j REJECT
 fi
 
-##################################################
-##############     IPv6 section     ##############
-##################################################
+####################################################################################################
+# 									ALL IPV6 SECTIONS
+####################################################################################################
 
 # If disableIPv6 is set to yes but ipv6InputPolicy and related ipv6 policy were not also set to
 # DROP or REJECT then this will correct that so traffic is appropriately dropped
@@ -511,7 +543,7 @@ if  [[ $disableIPv6 == N ]] || [[ $disableIPv6 == n ]]; then
 	fi
 fi
 
-# Input for ipv6
+# Inbound for ipv6
 if  [[ $ipv6InputPolicy == DROP ]] || [[ $ipv6InputPolicy == drop ]]; then
 	echo "* Ipv6: Dropping all other input traffic"
 	ip6tables -A INPUT -j DROP
@@ -522,7 +554,7 @@ if  [[ $ipv6InputPolicy == REJECT ]] || [[ $ipv6InputPolicy == reject ]]; then
 	ip6tables -A INPUT -j REJECT
 fi
 
-# Output for ipv6
+# Outboumd for ipv6
 if  [[ $ipv6OutputPolicy == DROP ]] || [[ $ipv6OutputPolicy == drop ]]; then
 	echo "* Ipv6: Dropping all other outbound traffic"
 	ip6tables -A OUTPUT -j DROP
@@ -543,9 +575,8 @@ if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
 	echo "* Ipv6: Rejecting all other forwarded traffic"
 	ip6tables -A FORWARD -j REJECT
 fi
-##################################################
 
-# Call fn_distro function to save iptables with detection for the correct distribution to
-# accomodate saving across many different types of system
-fn_distro
+####################################################################################################
+
+saveTables
 
