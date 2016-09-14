@@ -60,6 +60,7 @@ enableQuic=N
 # 1. Remember to read the definitions above to help in deciding what to enter
 # 2. Type your selection in UPPER CASE
 ####################################################################################################
+#
 # Default inbound policy for ipv4 be?
 inputPolicy=DROP
 #
@@ -86,9 +87,9 @@ ipv6ForwardPolicy=DROP
 # into iptables? Y/N
 enableInNewConnection=N
 # Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
-# establish. As an example, if you want NEW uninitiated inbound NFS sessions to be allowed, you'd put 111. 
+# establish. As an example, if you have an  IRC server and want inbound connections to be allowed, you'd put 6667 to open that required port. 
 #
-# Example: inNewConnection=("5900" "111") 
+# Example: inNewConnection=("5900" "111" "6667") 
 inNewConnection=("")
 #
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
@@ -115,9 +116,13 @@ TORRENTS=51413
 # Change accordingly to your interface naming scheme and the interfaces you are using.
 # Default is the 'old' naming scheme for Linux boxes, change to the new or BSD style if
 # required for your box
-ETH=eth0
-WLAN=wlan0
-TUN=tun0
+#
+# NOTE: Do not put an interface for one you are not using. If you just have ethernet, do not fill out wlan
+# as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
+# both then fill them out
+ETH=
+WLAN=
+TUN=
 
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
@@ -190,7 +195,7 @@ ip6tables --flush
 ip6tables --delete-chain
 
 # IPv4 default policies
-echo "* Setting default policies for input, outbound, and forwarding tables"
+echo "* Setting default policies for inbound, outbound, and forwarding tables"
 iptables -P INPUT $inputPolicy
 iptables -P OUTPUT $outputPolicy
 iptables -P FORWARD $forwardPolicy
@@ -199,6 +204,18 @@ iptables -P FORWARD $forwardPolicy
 ip6tables -P INPUT $ipv6InputPolicy
 ip6tables -P OUTPUT $ipv6OutputPolicy
 ip6tables -P FORWARD $ipv6ForwardPolicy
+
+# New chain creation
+iptables -N NMAP-LOG
+iptables -N DROP_IANA
+
+# Setting policy for DROP_IANA chian
+iptables -A DROP_IANA -j LOG
+iptables -A DROP_IANA -j DROP
+
+# IANA reserved network array
+# Only the first octet of the network address is needed since it is 7.0.0.0/8 as an example
+ianaNetworks=("0" "1" "2" "5" "7" "23" "27" "31" "36" "37" "39" "41" "42" "73" "74" "75" "76" "77" "78" "79" "89" "90" "91" "92" "93" "94" "95" "96" "97" "98" "99" "100" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113" "114" "115" "116" "117" "118" "119" "120" "121" "122" "123" "124" "125" "126" "127" "173" "174" "175" "176" "177" "178" "179" "180" "181" "182" "183" "184" "185" "186" "187" "189" "190" "197" "223" "240" "241" "242" "243" "244" "245" "246" "247" "248" "249" "250" "251" "252" "253" "254")
 
 ####################################################################################################
 # 										INBOUND
@@ -233,11 +250,50 @@ iptables -A INPUT   -m recent --name portscan --remove
 iptables -A FORWARD -m recent --name portscan --remove
 
 # These rules add scanners to the portscan list, and log the attempt.
-iptables -A INPUT   -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
-iptables -A INPUT   -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
+iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+# Attempt to block nmap
+# Borrowed from LutelWall - Source: http://www.lutel.pl/lutelwall/
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN  -j LOG --log-prefix "O_SCAN "
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN  -j LOG --log-prefix "sF_SCAN "
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN  -j LOG --log-prefix "sX_SCAN "
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE  -j LOG --log-prefix "sN_SCAN "
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK  -j LOG --log-prefix "sA_SCAN "
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL RST -j DROP
+iptables -A NMAP-LOG -p tcp -m tcp  -j LOG --log-prefix "BAD_FLAGS "
+iptables -A NMAP-LOG -j DROP
+
+# Drop all reserved IANA networks inbound and outbound
+ianaNetworksLength=${#ianaNetworks[@]}
+adjustedLength=$(( ianaNetworksLength - 1 ))
+
+if [[ $ETH = *[!\ ]* && $WLAN = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A INPUT -i $ETH -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+		iptables -A OUTPUT -o $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+	done
+	
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A INPUT -i $WLAN -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+		iptables -A OUTPUT -o $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+	done
+elif [[ $ETH = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A INPUT -i $ETH -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+		iptables -A OUTPUT -o $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+	done
+elif [[ $WLAN = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A INPUT -i $WLAN -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+		iptables -A OUTPUT -o $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
+	done
+fi
 
 echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
 iptables -A INPUT -i lo+ -j ACCEPT
@@ -263,7 +319,6 @@ iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
 echo "* Adding Protection from LAND Attacks"
 # Remove ranges that are required
-iptables -A INPUT -s 10.0.0.0/8 -j DROP
 iptables -A INPUT -s 169.254.0.0/16 -j DROP
 iptables -A INPUT -s 172.16.0.0/12 -j DROP
 iptables -A INPUT -s 127.0.0.0/8 -j DROP
@@ -272,8 +327,6 @@ iptables -A INPUT -s 224.0.0.0/4 -j DROP
 iptables -A INPUT -d 224.0.0.0/4 -j DROP
 iptables -A INPUT -s 240.0.0.0/5 -j DROP
 iptables -A INPUT -d 240.0.0.0/5 -j DROP
-iptables -A INPUT -s 0.0.0.0/8 -j DROP
-iptables -A INPUT -d 0.0.0.0/8 -j DROP
 iptables -A INPUT -d 239.255.255.0/24 -j DROP
 iptables -A INPUT -d 255.255.255.255 -j DROP
 
@@ -400,8 +453,6 @@ if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
 	iptables -A OUTPUT -o $TUN -j DROP
 fi
 
-iptables -A OUTPUT -o lo+ -j DROP
-
 # Allows OpenVPN sessions to establish if allowVPN is selected as 'Y'
 # This may or may not work with other VPN types if they use a different port. Either copy
 # and paste this, change the variable to your own, change the ports, etc or change the ports in
@@ -490,6 +541,33 @@ if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then
 	iptables -A FORWARD -i $TUN -o $WLAN -j DROP
 fi
 
+# These rules add scanners to the portscan list, and log the attempt.
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+
+# Drop all IANA networks traffic for all forwarded between ETH AND/OR WLAN AND TUN interfaces
+if [[ $ETH = *[!\ ]* && $WLAN = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A FORWARD -i $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
+		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $ETH -j DROP_IANA
+	done
+	
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A FORWARD -i $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
+		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $WLAN -j DROP_IANA
+	done
+elif [[ $ETH = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A FORWARD -i $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
+		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $ETH -j DROP_IANA
+	done
+elif [[ $WLAN = *[!\ ]* ]]; then
+	for i in $( eval echo {0..$adjustedLength} ); do
+		iptables -A FORWARD -i $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
+		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $WLAN -j DROP_IANA
+	done
+fi
+
 if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
 	echo "* DROPPING all other forwarded traffic"
 	iptables -A FORWARD -j DROP
@@ -554,7 +632,7 @@ if  [[ $ipv6InputPolicy == REJECT ]] || [[ $ipv6InputPolicy == reject ]]; then
 	ip6tables -A INPUT -j REJECT
 fi
 
-# Outboumd for ipv6
+# Outbound for ipv6
 if  [[ $ipv6OutputPolicy == DROP ]] || [[ $ipv6OutputPolicy == drop ]]; then
 	echo "* Ipv6: Dropping all other outbound traffic"
 	ip6tables -A OUTPUT -j DROP
