@@ -102,7 +102,7 @@ enableOutPorts=N
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("")
+enableOutboundConnections=()
 #
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -120,9 +120,9 @@ TORRENTS=51413
 # NOTE: Do not put an interface for one you are not using. If you just have ethernet, do not fill out wlan
 # as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
 # both then fill them out
-ETH=
-WLAN=
-TUN=
+ETH=eth0
+WLAN=wlan0
+TUN=tun0
 
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
@@ -136,8 +136,7 @@ TCPBurstNew=200
 TCPBurstEst=50
 
 ####################################################################################################
-# Warning: For most people it is not recommended to touch 
-# the following.
+# Warning: For most people it is not recommended to touch the following.
 ####################################################################################################
 
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
@@ -196,26 +195,17 @@ ip6tables --delete-chain
 
 # IPv4 default policies
 echo "* Setting default policies for inbound, outbound, and forwarding tables"
-iptables -P INPUT $inputPolicy
-iptables -P OUTPUT $outputPolicy
-iptables -P FORWARD $forwardPolicy
+iptables -P INPUT "$inputPolicy"
+iptables -P OUTPUT "$outputPolicy"
+iptables -P FORWARD "$forwardPolicy"
 
 # IPv6 default policies
-ip6tables -P INPUT $ipv6InputPolicy
-ip6tables -P OUTPUT $ipv6OutputPolicy
-ip6tables -P FORWARD $ipv6ForwardPolicy
+ip6tables -P INPUT "$ipv6InputPolicy"
+ip6tables -P OUTPUT "$ipv6OutputPolicy"
+ip6tables -P FORWARD "$ipv6ForwardPolicy"
 
 # New chain creation
 iptables -N NMAP-LOG
-iptables -N DROP_IANA
-
-# Setting policy for DROP_IANA chian
-iptables -A DROP_IANA -j LOG
-iptables -A DROP_IANA -j DROP
-
-# IANA reserved network array
-# Only the first octet of the network address is needed since it is 7.0.0.0/8 as an example
-ianaNetworks=("0" "1" "2" "5" "7" "23" "27" "31" "36" "37" "39" "41" "42" "73" "74" "75" "76" "77" "78" "79" "89" "90" "91" "92" "93" "94" "95" "96" "97" "98" "99" "100" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113" "114" "115" "116" "117" "118" "119" "120" "121" "122" "123" "124" "125" "126" "127" "173" "174" "175" "176" "177" "178" "179" "180" "181" "182" "183" "184" "185" "186" "187" "189" "190" "197" "223" "240" "241" "242" "243" "244" "245" "246" "247" "248" "249" "250" "251" "252" "253" "254")
 
 ####################################################################################################
 # 										INBOUND
@@ -240,8 +230,7 @@ if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
 	iptables -A INPUT -i $TUN -j DROP
 fi
 
-# Attempt to block portscans
-# Anyone who tried to portscan us is locked out for an entire day.
+echo "* Blocking portscans, anyone who tried to portscan us is locked out for a day"
 iptables -A INPUT   -m recent --name portscan --rcheck --seconds 86400 -j DROP
 iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
 
@@ -253,7 +242,7 @@ iptables -A FORWARD -m recent --name portscan --remove
 iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
 iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
-# Attempt to block nmap
+echo "* Nmap blocks are set for inbound connections"
 # Borrowed from LutelWall - Source: http://www.lutel.pl/lutelwall/
 iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN  -j LOG --log-prefix "O_SCAN "
 iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN -j DROP
@@ -269,32 +258,6 @@ iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL RST -j DROP
 iptables -A NMAP-LOG -p tcp -m tcp  -j LOG --log-prefix "BAD_FLAGS "
 iptables -A NMAP-LOG -j DROP
 
-# Drop all reserved IANA networks inbound and outbound
-ianaNetworksLength=${#ianaNetworks[@]}
-adjustedLength=$(( ianaNetworksLength - 1 ))
-
-if [[ $ETH = *[!\ ]* && $WLAN = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A INPUT -i $ETH -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-		iptables -A OUTPUT -o $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-	done
-	
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A INPUT -i $WLAN -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-		iptables -A OUTPUT -o $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-	done
-elif [[ $ETH = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A INPUT -i $ETH -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-		iptables -A OUTPUT -o $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-	done
-elif [[ $WLAN = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A INPUT -i $WLAN -s $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-		iptables -A OUTPUT -o $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -j DROP_IANA
-	done
-fi
-
 echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
 iptables -A INPUT -i lo+ -j ACCEPT
 iptables -A INPUT ! -i lo+ -d 127.0.0.0/8 -j REJECT
@@ -307,18 +270,19 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -p tcp --dport $WEB -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
 iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
 
-# Force Fragments packets check
+echo "* Force Fragments packets check for inbound traffic"
 # Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
 iptables -A INPUT -f -j DROP
 
-# XMAS packets: Incoming malformed XMAS packets drop them
+echo "* XMAS packets: Incoming malformed XMAS packets drop them"
 iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
 
-#Drop all NULL packets: Incoming malformed NULL packets
+echo "* Drop all NULL packets: Incoming malformed NULL packets"
 iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
 echo "* Adding Protection from LAND Attacks"
 # Remove ranges that are required
+iptables -A INPUT -s 10.0.0.0/8 -j DROP
 iptables -A INPUT -s 169.254.0.0/16 -j DROP
 iptables -A INPUT -s 172.16.0.0/12 -j DROP
 iptables -A INPUT -s 127.0.0.0/8 -j DROP
@@ -327,6 +291,8 @@ iptables -A INPUT -s 224.0.0.0/4 -j DROP
 iptables -A INPUT -d 224.0.0.0/4 -j DROP
 iptables -A INPUT -s 240.0.0.0/5 -j DROP
 iptables -A INPUT -d 240.0.0.0/5 -j DROP
+iptables -A INPUT -s 0.0.0.0/8 -j DROP
+iptables -A INPUT -d 0.0.0.0/8 -j DROP
 iptables -A INPUT -d 239.255.255.0/24 -j DROP
 iptables -A INPUT -d 255.255.255.255 -j DROP
 
@@ -365,11 +331,13 @@ fi
 if  [[ $allowPINGS == "N" ]] || [[ $allowPINGS == "n" ]]; then
 	echo "* Block all incoming pings, although they should be blocked already"
 	iptables -A INPUT -p icmp -m icmp --icmp-type 8 -j REJECT --reject-with icmp-proto-unreachable
+else
+	iptables -A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 fi
 
 # This occurs if allowSSH is entered as 'Y' to allow incoming SSH connections
 if  [[ $allowSSH == "Y" ]] || [[ $allowSSH == "y" ]]; then
-	echo "* Allowing inbound SSH sessions"
+	echo "* Allowing inbound SSH sessions on port $SSH"
 	iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 fi
 
@@ -514,7 +482,7 @@ iptables -A OUTPUT -p tcp -m tcp --dport $SSH -j ACCEPT
 echo "* Allowing outbound PING Type 8 ICMP Requests, so we don't break things."
 iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 
-echo "* Allowing DHCP (Broadcasts) outbound"
+echo "* Allowing DHCP outbound"
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
 if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == drop ]]; then
@@ -539,33 +507,6 @@ if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then
 	iptables -A FORWARD -i $TUN -o $ETH -j DROP
 	iptables -A FORWARD -i $WLAN -o $TUN -j DROP
 	iptables -A FORWARD -i $TUN -o $WLAN -j DROP
-fi
-
-# These rules add scanners to the portscan list, and log the attempt.
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
-iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
-
-# Drop all IANA networks traffic for all forwarded between ETH AND/OR WLAN AND TUN interfaces
-if [[ $ETH = *[!\ ]* && $WLAN = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A FORWARD -i $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
-		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $ETH -j DROP_IANA
-	done
-	
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A FORWARD -i $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
-		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $WLAN -j DROP_IANA
-	done
-elif [[ $ETH = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A FORWARD -i $ETH -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
-		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $ETH -j DROP_IANA
-	done
-elif [[ $WLAN = *[!\ ]* ]]; then
-	for i in $( eval echo {0..$adjustedLength} ); do
-		iptables -A FORWARD -i $WLAN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $TUN -j DROP_IANA
-		iptables -A FORWARD -i $TUN -d $(printf '%q\n' "${ianaNetworks[$i]}")".0.0.0/8" -o $WLAN -j DROP_IANA
-	done
 fi
 
 if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
