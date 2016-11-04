@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Written by: https://gitlab.com/u/huuteml
-# Website: https://daulton.ca
+# Written by: 	Daulton
+# Website: 		https://daulton.ca
+# Repository:	https://github.com/jeekkd
 #
 # This script will help stop most port scanning attempts, UDP Floods, SYN Floods, TCP Floods, 
 # Handshake Exploits, XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally 
@@ -31,7 +32,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=N
+allowVPN=Y
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -43,17 +44,17 @@ allowSSH=N
 allowHTTP=N
 #
 # Allow inbound/outbound torrent traffic? Y/N
-allowTorrents=N
+allowTorrents=Y
 #
 # Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
 internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=N
+disableIPv6=Y
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=N
+enableQuic=Y
 #
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
@@ -65,7 +66,7 @@ enableQuic=N
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=DROP
+outputPolicy=ACCEPT
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -94,7 +95,7 @@ inNewConnection=("")
 #
 # Do you want to enable the enableOutboundConnections array to have the script input the entered ports
 # into iptables? Y/N
-enableOutPorts=N
+enableOutPorts=Y
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
@@ -102,7 +103,7 @@ enableOutPorts=N
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=()
+enableOutboundConnections=("6667" "21" "873" "70" "666" "8006" "2049" "111" "8080" "9091")
 #
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
@@ -121,7 +122,7 @@ TORRENTS=51413
 # as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
 # both then fill them out
 ETH=eth0
-WLAN=wlan0
+WLAN=
 TUN=tun0
 
 # Disable traffic in and out of an interface. Answer Y or N here
@@ -138,6 +139,10 @@ TCPBurstEst=50
 ####################################################################################################
 # Warning: For most people it is not recommended to touch the following.
 ####################################################################################################
+
+# Enable during debugging for some extra help. When an error occurs the program exits with a notification 
+# displaying the exit code and line that the fault occurred at
+# trap 'echo "Error $? at $LINENO; aborting." 1>&2; exit $?' ERR
 
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary - included in the repo.
@@ -213,7 +218,7 @@ iptables -N NMAP-LOG
 
 # Disable traffic into the specified interfaces
 # Ethernet
-if  [[ $disableEth == "Y" ]] || [[ $disableEth == "y" ]]; then
+if [[ $disableEth == "Y" ]] || [[ $disableEth == "y" ]]; then
 	echo "* Disabling traffic input into $ETH"
 	iptables -A INPUT -i $ETH -j DROP
 fi

@@ -27,7 +27,7 @@ below I will make examples to make adding new ports for inbound and/or outbound 
 Pictures
 ===
 
-![daulton.ca](https://daulton.ca//lib/plugins/ckgedit/fckeditor/userfiles/image/bash_script_pictures/iptables.png)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables.png?cache=)
 
 By default before each time the script is ran your existing rules are saved. There is a companion script 
 called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
@@ -130,7 +130,7 @@ How to use
 - Lets get the source
 
 ```
-git clone https://gitlab.com/huuteml/restricted_iptables.git && cd restricted_iptables
+git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-iptables
 ```
 
 - This will make the script readable, writable, and executable to root and your user. 
