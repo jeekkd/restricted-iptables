@@ -19,8 +19,7 @@
 # work and are locked down and/or work the way you want. Don't expect to run this and be done, you'll need 
 # to continue reading and configure for your specific system and needs
 #
-####################################################################################################
-# Policy Definitions:
+######################################## Policy Definitions ########################################
 # Accept – Allow the connection.
 #
 # Drop – Drop the connection, act like it never happened. This is best if you don’t want the source to 
@@ -32,7 +31,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=Y
+allowVPN=N
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -44,21 +43,21 @@ allowSSH=N
 allowHTTP=N
 #
 # Allow inbound/outbound torrent traffic? Y/N
-allowTorrents=Y
+allowTorrents=N
 #
 # Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
 internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=Y
+disableIPv6=N
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=Y
+enableQuic=N
 #
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
-# 1. Remember to read the definitions above to help in deciding what to enter
+# 1. Consider reading the definitions above to help in deciding what to enter
 # 2. Type your selection in UPPER CASE
 ####################################################################################################
 #
@@ -66,7 +65,7 @@ enableQuic=Y
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=ACCEPT
+outputPolicy=DROP
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -84,27 +83,27 @@ ipv6ForwardPolicy=DROP
 # 									Opening ports section
 ####################################################################################################
 #
-# Do you want to enable the inNewConnection array to have the script input the entered ports
-# into iptables? Y/N
-enableInNewConnection=N
+# Open a range of ports - enter the beginning and end ports seperated by a colon (:). This will allow 
+# TCP/UDP traffic both in and outbound for the entered port range(s). More ranges can be added by separating 
+# each range by a space like so: openPortRanges=(6780:6999 48808:51413 24155:27810)
+openPortRanges=()
+#
 # Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
-# establish. As an example, if you have an  IRC server and want inbound connections to be allowed, you'd put 6667 to open that required port. 
+# establish. As an example, if you have an  IRC server and want inbound connections to be allowed, you'd put 
+# 6667 to open that required port. 
+# Example: inNewConnection=(5900 111 2049 6667) 
+inNewConnection=()
 #
-# Example: inNewConnection=("5900" "111" "6667") 
-inNewConnection=("")
-#
-# Do you want to enable the enableOutboundConnections array to have the script input the entered ports
-# into iptables? Y/N
-enableOutPorts=Y
 # Enter numerical port values here for allowed outbound connections, enter values here for ports you want 
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
 #
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
-# Example: enableOutboundConnections=("5900" "3389" "3390" "6667")
-enableOutboundConnections=("6667" "21" "873" "70" "666" "8006" "2049" "111" "8080" "9091")
+# Example: enableOutboundConnections=(5900 3389 3390 6667)
+enableOutboundConnections=()
 #
+####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
 # Note: For your torrent client turn off random ports and select a port, then enter that here
@@ -113,7 +112,7 @@ DNS=53
 SSL=443
 SSH=22
 TORRENTS=51413
-
+#
 # Change accordingly to your interface naming scheme and the interfaces you are using.
 # Default is the 'old' naming scheme for Linux boxes, change to the new or BSD style if
 # required for your box
@@ -124,18 +123,18 @@ TORRENTS=51413
 ETH=eth0
 WLAN=
 TUN=tun0
-
+#
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
 disableWlan=N
 disableTun=N
-
+#
 # TCPBurstNew: # of Packets a new connection can send in 1 request
 # TCPBurstEst: # of Packets an existing connection can send in 1 request
 # IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
 TCPBurstNew=200
 TCPBurstEst=50
-
+#
 ####################################################################################################
 # Warning: For most people it is not recommended to touch the following.
 ####################################################################################################
@@ -325,6 +324,18 @@ iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --
 echo "* Allowing established DNS requests back in"
 iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+# Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open
+if [ ${#openPortRanges[@]} -gt 0 ]; then
+	openPortRangesLength=${#openPortRanges[@]}
+	adjustedLength=$(( openPortRangesLength - 1 ))
+
+	for i in $( eval echo {0..$adjustedLength} )
+	do
+		iptables -A INPUT -p tcp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
+		iptables -A INPUT -p udp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
+	done
+fi
+
 # This occurs if allowTorrents was entered as 'Y' to allow torrent traffic
 if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
 	echo "* Allowing inbound/outbound traffic on port $TORRENTS for torrent traffic"
@@ -366,9 +377,9 @@ if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
 	iptables -A INPUT -p udp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
-# If enableInNewConnection is 'Y' this will create rules for all entered ports in the inNewConnection
-# array. This for for allowing new and established connections in on the entered ports.
-if  [[ $enableInNewConnection == "Y" ]] || [[ $enableInNewConnection == "y" ]]; then
+# If the inNewConnection array has contents it will enter the array values into iptables. This for for 
+# allowing new and established connections in on the entered ports.
+if [ ${#inNewConnection[@]} -gt 0 ]; then
 	inNewConnectionLength=${#inNewConnection[@]}
 	adjustedLength=$(( inNewConnectionLength - 1 ))
 
@@ -382,7 +393,7 @@ fi
 # This is similar to the above, except it uses the enableOutboundConnections array. The purpose of this
 # is to allow established and related connections back in on outbound connections using the same ports 
 # entered into the array
-if  [[ $enableOutPorts == "Y" ]] || [[ $enableOutPorts == "y" ]]; then
+if [ ${#enableOutboundConnections[@]} -gt 0 ]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
@@ -448,7 +459,7 @@ fi
 
 # If enableOutPorts is selected as 'Y' then the entered ports in the enableOutboundConnections array
 # will have rules created to allow those ports to make outbound connections
-if  [[ $enableOutPorts == "Y" ]] || [[ $enableOutPorts == "y" ]]; then
+if [ ${#enableOutboundConnections[@]} -gt 0 ]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
 
@@ -458,6 +469,19 @@ if  [[ $enableOutPorts == "Y" ]] || [[ $enableOutPorts == "y" ]]; then
 		iptables -A OUTPUT -p udp --dport "${enableOutboundConnections[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	done
 fi
+
+# Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open
+if [ ${#openPortRanges[@]} -gt 0 ]; then
+	openPortRangesLength=${#openPortRanges[@]}
+	adjustedLength=$(( openPortRangesLength - 1 ))
+
+	for i in $( eval echo {0..$adjustedLength} )
+	do
+		iptables -A OUTPUT -p tcp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
+		iptables -A OUTPUT -p udp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
+	done
+fi
+
 
 # If allowTorrents has been set to 'Y' then torrent traffic will be allowed out on both udp and tcp
 # for the entered torrent port
