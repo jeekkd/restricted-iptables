@@ -31,7 +31,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=N
+allowVPN=Y
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -50,7 +50,7 @@ internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=N
+disableIPv6=Y
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
 enableQuic=N
@@ -65,7 +65,7 @@ enableQuic=N
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=DROP
+outputPolicy=ACCEPT
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -101,7 +101,7 @@ inNewConnection=()
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=(5900 3389 3390 6667)
-enableOutboundConnections=()
+enableOutboundConnections=(6667 21 873 70 666 8006 2049 111 8080 9091)
 #
 ####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
@@ -119,7 +119,8 @@ TORRENTS=51413
 #
 # NOTE: Do not put an interface for one you are not using. If you just have ethernet, do not fill out wlan
 # as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
-# both then fill them out
+# both then fill them out. Only fill out TUN if you use tunnel interfaces for anything and/or have allowVPN
+# set to 'Y' for yes to allow OpenVPN to establish outbound.
 ETH=eth0
 WLAN=
 TUN=tun0
@@ -331,8 +332,8 @@ if [ ${#openPortRanges[@]} -gt 0 ]; then
 
 	for i in $( eval echo {0..$adjustedLength} )
 	do
-		iptables -A INPUT -p tcp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
-		iptables -A INPUT -p udp --match multiport --dports "${openPortRanges[$i]}" -j ACCEPT
+		iptables -A INPUT -p tcp --match multiport --dports "${openPortRanges[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		iptables -A INPUT -p udp --match multiport --dports "${openPortRanges[$i]}" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	done
 fi
 
@@ -365,7 +366,7 @@ if  [[ $allowHTTP == "Y" ]] || [[ $allowHTTP == "y" ]]; then
 	iptables -A INPUT -p tcp --dport "$HTTP" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -p tcp --dport "$SSL" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 else
-	echo "* Allowing regular HTTP(S) traffic back in"
+	echo "* Allowing regular user initiated HTTP(S) traffic back in"
 	iptables -A INPUT -p tcp -m tcp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -p tcp -m tcp --dport "$WEB" -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
@@ -457,8 +458,8 @@ if  [[ $allowVPN == "Y" ]] || [[ $allowVPN == "y" ]]; then
 	iptables -A OUTPUT -o $ETH -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 fi
 
-# If enableOutPorts is selected as 'Y' then the entered ports in the enableOutboundConnections array
-# will have rules created to allow those ports to make outbound connections
+# If there are any entered ports in the enableOutboundConnections array this will have rules created to 
+# allow those ports to make outbound connections.
 if [ ${#enableOutboundConnections[@]} -gt 0 ]; then
 	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
 	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
@@ -470,7 +471,8 @@ if [ ${#enableOutboundConnections[@]} -gt 0 ]; then
 	done
 fi
 
-# Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open
+# Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open. This
+# is triggered when there is anything entered in the openPortRanges array.
 if [ ${#openPortRanges[@]} -gt 0 ]; then
 	openPortRangesLength=${#openPortRanges[@]}
 	adjustedLength=$(( openPortRangesLength - 1 ))
@@ -486,6 +488,7 @@ fi
 # If allowTorrents has been set to 'Y' then torrent traffic will be allowed out on both udp and tcp
 # for the entered torrent port
 if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
+	echo "* Allowwing torrents outbound on port $TORRENTS"
 	iptables -A OUTPUT -p tcp -m tcp --dport $TORRENTS -j ACCEPT
 	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
 fi
@@ -493,6 +496,7 @@ fi
 # If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
 # Google is experimenting with for Google chrome and its other services to eventually replace TCP
 if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
+	echo "* Enabling Quick UDP Internet Connections proptocol outbound"
 	iptables -A OUTPUT -p udp -m udp --dport $SSL -j ACCEPT
 fi
 
@@ -531,11 +535,19 @@ fi
 # Prevent internal forwarding between interfaces as it is a risk that traffic may try
 # to get out a different interface if available to circumvent blocking rules in place
 # on another interface
-if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then
-	iptables -A FORWARD -i $ETH -o $TUN -j DROP
-	iptables -A FORWARD -i $TUN -o $ETH -j DROP
-	iptables -A FORWARD -i $WLAN -o $TUN -j DROP
-	iptables -A FORWARD -i $TUN -o $WLAN -j DROP
+if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then	
+	if [[ ${ETH} -gt 0 ]] && [[ ${TUN} -gt 0 ]]; then
+		iptables -A FORWARD -i $ETH -o $TUN -j DROP
+		iptables -A FORWARD -i $TUN -o $ETH -j DROP
+	fi
+	if [[ ${WLAN} -gt 0 ]] && [[ ${TUN} -gt 0 ]]; then
+		iptables -A FORWARD -i $WLAN -o $TUN -j DROP
+		iptables -A FORWARD -i $TUN -o $WLAN -j DROP
+	fi
+	if [[ ${WLAN} -gt 0 ]] && [[ ${ETH} -gt 0 ]]; then
+		iptables -A FORWARD -i $WLAN -o $ETH -j DROP
+		iptables -A FORWARD -i $ETH -o $WLAN -j DROP
+	fi	
 fi
 
 if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
