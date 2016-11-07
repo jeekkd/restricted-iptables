@@ -1,7 +1,8 @@
-#!/bin/bash
-
-# Written by: https://github.com/turkgrb
-# Website: https://daulton.ca
+#!/usr/bin/env bash
+# Written by: 			Daulton
+# Website: 				https://daulton.ca
+# Repository:			https://github.com/jeekkd
+# Script repository: 	https://github.com/jeekkd/restricted-iptables
 # Purpose: This is a companion script to restricted_iptables.sh to restore the old rules if necessary
 
 # saveTables()

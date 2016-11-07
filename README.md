@@ -40,9 +40,9 @@ point in time to restore your rules to.
 Setting the variables
 ===
 
-Near the top of the script there is a variables section, this requires a little bit of configuration
-to adjust it to your specific needs. I'll outline some examples below for what to expect and what this
-series of options requires
+Within configuration.sh there are variables which must be filled out, this requires a little bit of 
+configuration to adjust it to your specific needs. I will outline some examples below for what to expect 
+and what this series of options requires.
 
 - The first set of variables are simple Y or N questions which outline whether a specific thing to be 
 allowed or blocked depending which question
@@ -136,16 +136,17 @@ git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-ipt
 - This will make the script readable, writable, and executable to root and your user. 
 
 ```
-sudo chmod 770 restricted_iptables.sh restore_iptables.sh
+sudo chmod 770 restricted_iptables.sh restore_iptables.sh configuration.sh
 ```
 
 - Open the script in your text editor of choice. You need to edit the variables in the highlighted variables section near the top.
 
 ```
-gedit restricted_iptables.sh
+gedit configuration.sh
 ```
 
-- You will want to make sure you've saved, then launch the script by doing the following:
+- You will want to make sure you've saved, then launch the main script by doing the following. Do not worry,
+the configuration done within configuration.sh will be imported from restricted_iptables.sh.
 
 ```
 sudo bash restricted_iptables.sh
@@ -179,10 +180,10 @@ sudo bash restore_iptables.sh
 >
 > Saving:
 > ```
- iptables-save > /directory/example.rules
+ iptables-save > /path/to/rules/example.rules
 >
 >```
 > Restoring:
 > ```
- iptables-restore < /directory/example.rules
+ iptables-restore < /path/to/rules/example.rules
 > ```
