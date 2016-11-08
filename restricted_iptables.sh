@@ -14,9 +14,7 @@
 # Important module(s) for the purpose of modularizing the script.
 import() {
   module=$1
-
   . ${module}.sh
-  debug import "imported module ${module}"
 }
 
 import configuration
@@ -449,25 +447,6 @@ fi
 # 									ALL IPV6 SECTIONS
 ####################################################################################################
 
-# If disableIPv6 is set to yes but ipv6InputPolicy and related ipv6 policy were not also set to
-# DROP or REJECT then this will correct that so traffic is appropriately dropped
-if  [[ $disableIPv6 == Y ]] || [[ $disableIPv6 == y ]]; then	
-	# Input
-	if  [[ $ipv6InputPolicy == ACCEPT ]] || [[ $ipv6InputPolicy == accept ]]; then
-		ip6tables -A INPUT -j DROP
-	fi
-	
-	# Output
-	if  [[ $ipv6OutputPolicy == ACCEPT ]] || [[ $ipv6OutputPolicy == accept ]]; then
-		ip6tables -A OUTPUT -j DROP
-	fi
-	
-	# Forwarding
-	if  [[ $ipv6ForwardPolicy == ACCEPT ]] || [[ $ipv6ForwardPolicy == accept ]]; then
-		ip6tables -A FORWARD -j DROP
-	fi
-fi
-
 if  [[ $disableIPv6 == N ]] || [[ $disableIPv6 == n ]]; then	 
 	echo "* IPv6: Allow full outbound connection but no inbound"
 	ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
@@ -519,6 +498,25 @@ fi
 if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
 	echo "* Ipv6: Rejecting all other forwarded traffic"
 	ip6tables -A FORWARD -j REJECT
+fi
+
+# If disableIPv6 is set to yes but ipv6InputPolicy and related ipv6 policy were not also set to
+# DROP or REJECT then this will correct that to assure traffic is dropped.
+if  [[ $disableIPv6 == Y ]] || [[ $disableIPv6 == y ]]; then	
+	# Input
+	if  [[ $ipv6InputPolicy == ACCEPT ]] || [[ $ipv6InputPolicy == accept ]]; then
+		ip6tables -A INPUT -j DROP
+	fi
+	
+	# Output
+	if  [[ $ipv6OutputPolicy == ACCEPT ]] || [[ $ipv6OutputPolicy == accept ]]; then
+		ip6tables -A OUTPUT -j DROP
+	fi
+	
+	# Forwarding
+	if  [[ $ipv6ForwardPolicy == ACCEPT ]] || [[ $ipv6ForwardPolicy == accept ]]; then
+		ip6tables -A FORWARD -j DROP
+	fi
 fi
 
 ####################################################################################################
