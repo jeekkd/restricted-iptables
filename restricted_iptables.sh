@@ -447,14 +447,7 @@ fi
 # 									ALL IPV6 SECTIONS
 ####################################################################################################
 
-if  [[ $disableIPv6 == N ]] || [[ $disableIPv6 == n ]]; then	 
-	echo "* IPv6: Allow full outbound connection but no inbound"
-	ip6tables -A INPUT -i $ETH -m state --state ESTABLISHED,RELATED -j ACCEPT
-	ip6tables -A OUTPUT -o $ETH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	
-	ip6tables -A INPUT -i $WLAN -m state --state ESTABLISHED,RELATED -j ACCEPT
-	ip6tables -A OUTPUT -o $WLAN -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	 
+if  [[ $disableIPv6 == N ]] || [[ $disableIPv6 == n ]]; then	 	 
 	echo "* IPv6: ICMP ping is being allowed outbound"
 	ip6tables -A OUTPUT -o $ETH -p ipv6-icmp -j ACCEPT
 
