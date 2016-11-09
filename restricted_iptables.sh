@@ -10,11 +10,21 @@
 #
 #####################################################################################################
 #
+# get_script_dir()
+# Gets the directory the script is being ran from. To be used with the import() function
+# so the configuration is imported from its absolute path
+get_script_dir() {
+	script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+}
+
+# Leave here to get scripts running location
+get_script_dir
+
 # import()
 # Important module(s) for the purpose of modularizing the script.
 import() {
   module=$1
-  . ${module}.sh
+  . "$script_dir"/${module}.sh
 }
 
 import configuration
