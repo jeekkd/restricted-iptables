@@ -5,6 +5,21 @@
 # Script repository: 	https://github.com/jeekkd/restricted-iptables
 # Purpose: This is a companion script to restricted_iptables.sh to restore the old rules if necessary
 
+########################################## VARIABLES ################################################
+# Select location to restore iptables rules from. This must match what is set in the same variable in
+# configuration.sh, so you are saving and restoring from the same directory. This is by default at /tmp.
+restoreRulesDir=/tmp
+#####################################################################################################
+
+# control_c()
+# Trap Ctrl-C for a quick exit when necessary
+control_c() {
+	echo "Control-c pressed - exiting NOW"
+	exit 1
+}
+
+trap control_c SIGINT
+
 # saveTables()
 # Modified function from below, purpose is to detect which distribution is running so
 # the rules may be saved in a way for each distribution as to work on a wider range of
@@ -36,28 +51,31 @@ saveTables(){
 		echo "You will need to search of how to save them for your distribution." 
 		echo
 		echo "Please report this error! remember to include which distribution you are using"
-		echo "https://gitlab.com/huuteml/restricted_iptables"
+		echo "https://github.com/jeekkd/restricted-iptables"
 	fi
 }
 
-echo "Selected which rules you'd like to restore by typing its corresponding number"
+echo "Selected which rule set to restore by typing its corresponding number: "
 ls /tmp | grep "iptables.rules" | cat -n
 read answer
-selected_rule=$(ls /tmp | grep "iptables.rules" | sed -n $answer\p)
-
+selected_rule=$(ls "$restoreRulesDir/" | grep "iptables.rules" | sed -n $answer\p)
+echo
 echo "This will restore the rule set: \"$selected_rule\". Are you sure? Y/N"
 read answer
 if [[ $answer == "Y" || $answer == "y" || $answer = "" ]]; then
-	iptables-restore < /tmp/$selected_rule
+	iptables-restore < "$restoreRulesDir"/$selected_rule
 	if [ $? -eq 0 ]; then
 		saveTables
 		if [ $? -eq 0 ]; then
+			echo
 			echo "Restoration completed!"
 		fi
 	else
+		echo
 		echo "Error: iptables restoration failed. Investigate issue"
 	fi
 else
+	echo
 	echo "No selected, exiting now"
 	exit
 fi

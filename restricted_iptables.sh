@@ -40,10 +40,10 @@ import configuration
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary - included in the repo.
 if [ -f "/tmp/original_iptables.rules" ]; then
-	today_date=$( date +%I_%M_%b_%d_%Y)
-	iptables-save > /tmp/${today_date}_iptables.rules
+	todaysDate=$( date +%R-%b-%d-%Y)
+	iptables-save > "$saveRulesDir"/${todaysDate}-iptables.rules
 else 
-	iptables-save > /tmp/original_iptables.rules
+	iptables-save > "$saveRulesDir"/original-iptables.rules
 fi
 
 # saveTables()
