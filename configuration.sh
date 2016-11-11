@@ -35,7 +35,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=Y
+allowVPN=N
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -54,10 +54,10 @@ internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=Y
+disableIPv6=N
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=Y
+enableQuic=N
 #
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
@@ -69,7 +69,7 @@ enableQuic=Y
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=ACCEPT
+outputPolicy=DROP
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -105,7 +105,7 @@ inNewConnection=()
 # These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
 #
 # Example: enableOutboundConnections=(5900 3389 3390 6667)
-enableOutboundConnections=(32400 71 123 6667 5900 3389 3390 111 2049 8112 9091 873 1048)
+enableOutboundConnections=()
 #
 ####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
@@ -125,9 +125,9 @@ TORRENTS=51413
 # as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
 # both then fill them out. Only fill out TUN if you use tunnel interfaces for anything and/or have allowVPN
 # set to 'Y' for yes to allow OpenVPN to establish outbound.
-ETH=eth0
+ETH=
 WLAN=
-TUN=tun0
+TUN=
 #
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
