@@ -59,6 +59,11 @@ disableIPv6=N
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
 enableQuic=N
 #
+# Enable or disable additional the security measures such as port scanning attempts, UDP Floods, SYN Floods, 
+# TCP Floods, Handshake Exploits, XMAS Packets, etc. This is not recommended for regular usage, but can be
+# helpful to be able to turn off if troubleshooting is necessary.
+disableSecurity=N
+#
 ####################################################################################################
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
 # 1. Consider reading the definitions above to help in deciding what to enter

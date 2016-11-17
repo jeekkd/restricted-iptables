@@ -77,7 +77,7 @@ saveTables(){
 		echo "You will need to search of how to save them for your distribution." 
 		echo
 		echo "Please report this error! remember to include which distribution you are using"
-		echo "https://gitlab.com/huuteml/restricted_iptables"
+		echo "https://github.com/jeekkd/restricted-iptables"
 	fi
 }
 
@@ -128,95 +128,100 @@ if  [[ $disableTun == "Y" ]] || [[ $disableTun == "y" ]]; then
 	iptables -A INPUT -i $TUN -j DROP
 fi
 
-echo "* Blocking portscans, anyone who tried to portscan us is locked out for a day"
-iptables -A INPUT   -m recent --name portscan --rcheck --seconds 86400 -j DROP
-iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
+# This does not occur if disableSecurity is set to Y, as the section will be skipped.
+# The purpose being if a user needs to troubleshoot and suspects the firewall is blocking too much, 
+# additional security measures can be turned off. This is not recommended for regular usage.
+if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
+	echo "* Blocking portscans, anyone who tried to portscan us is locked out for a day"
+	iptables -A INPUT   -m recent --name portscan --rcheck --seconds 86400 -j DROP
+	iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
 
-# Once the day has passed, remove them from the portscan list
-iptables -A INPUT   -m recent --name portscan --remove
-iptables -A FORWARD -m recent --name portscan --remove
+	# Once the day has passed, remove them from the portscan list
+	iptables -A INPUT   -m recent --name portscan --remove
+	iptables -A FORWARD -m recent --name portscan --remove
 
-# These rules add scanners to the portscan list, and log the attempt.
-iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
-iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+	# These rules add scanners to the portscan list, and log the attempt.
+	iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "Portscan:"
+	iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
-echo "* Nmap blocks are set for inbound connections"
-# Borrowed from LutelWall - Source: http://www.lutel.pl/lutelwall/
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN  -j LOG --log-prefix "O_SCAN "
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN  -j LOG --log-prefix "sF_SCAN "
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN  -j LOG --log-prefix "sX_SCAN "
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE  -j LOG --log-prefix "sN_SCAN "
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK  -j LOG --log-prefix "sA_SCAN "
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL RST -j DROP
-iptables -A NMAP-LOG -p tcp -m tcp  -j LOG --log-prefix "BAD_FLAGS "
-iptables -A NMAP-LOG -j DROP
+	echo "* Nmap blocks are set for inbound connections"
+	# Borrowed from LutelWall - Source: http://www.lutel.pl/lutelwall/
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN  -j LOG --log-prefix "O_SCAN "
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,SYN,FIN -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN  -j LOG --log-prefix "sF_SCAN "
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL FIN -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN  -j LOG --log-prefix "sX_SCAN "
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL URG,PSH,FIN -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE  -j LOG --log-prefix "sN_SCAN "
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL NONE -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK  -j LOG --log-prefix "sA_SCAN "
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL ACK -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp --tcp-flags ALL RST -j DROP
+	iptables -A NMAP-LOG -p tcp -m tcp  -j LOG --log-prefix "BAD_FLAGS "
+	iptables -A NMAP-LOG -j DROP
 
-echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
-iptables -A INPUT -i lo+ -j ACCEPT
-iptables -A INPUT ! -i lo+ -d 127.0.0.0/8 -j REJECT
+	echo "* Allowing all loopback (lo) traffic and drop all traffic to 127/8 that doesn't use lo"
+	iptables -A INPUT -i lo+ -j ACCEPT
+	iptables -A INPUT ! -i lo+ -d 127.0.0.0/8 -j REJECT
 
-echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
-# All TCP sessions should begin with SYN
-iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
-# Allow established and related packets
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -p tcp --dport $WEB -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
-iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
+	echo "* Enabling the 3 Way Hand Shake and limiting TCP Requests."
+	# All TCP sessions should begin with SYN
+	iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+	# Allow established and related packets
+	iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p tcp --dport $WEB -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
+	iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
 
-echo "* Force Fragments packets check for inbound traffic"
-# Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
-iptables -A INPUT -f -j DROP
+	echo "* Force Fragments packets check for inbound traffic"
+	# Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
+	iptables -A INPUT -f -j DROP
 
-echo "* XMAS packets: Incoming malformed XMAS packets drop them"
-iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
+	echo "* XMAS packets: Incoming malformed XMAS packets drop them"
+	iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
 
-echo "* Drop all NULL packets: Incoming malformed NULL packets"
-iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+	echo "* Drop all NULL packets: Incoming malformed NULL packets"
+	iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
-echo "* Adding Protection from LAND Attacks"
-# Remove ranges that are required
-iptables -A INPUT -s 10.0.0.0/8 -j DROP
-iptables -A INPUT -s 169.254.0.0/16 -j DROP
-iptables -A INPUT -s 172.16.0.0/12 -j DROP
-iptables -A INPUT -s 127.0.0.0/8 -j DROP
-iptables -A INPUT -s 192.168.0.0/24 -j DROP
-iptables -A INPUT -s 224.0.0.0/4 -j DROP
-iptables -A INPUT -d 224.0.0.0/4 -j DROP
-iptables -A INPUT -s 240.0.0.0/5 -j DROP
-iptables -A INPUT -d 240.0.0.0/5 -j DROP
-iptables -A INPUT -s 0.0.0.0/8 -j DROP
-iptables -A INPUT -d 0.0.0.0/8 -j DROP
-iptables -A INPUT -d 239.255.255.0/24 -j DROP
-iptables -A INPUT -d 255.255.255.255 -j DROP
+	echo "* Adding Protection from LAND Attacks"
+	# Remove ranges that are required
+	iptables -A INPUT -s 10.0.0.0/8 -j DROP
+	iptables -A INPUT -s 169.254.0.0/16 -j DROP
+	iptables -A INPUT -s 172.16.0.0/12 -j DROP
+	iptables -A INPUT -s 127.0.0.0/8 -j DROP
+	iptables -A INPUT -s 192.168.0.0/24 -j DROP
+	iptables -A INPUT -s 224.0.0.0/4 -j DROP
+	iptables -A INPUT -d 224.0.0.0/4 -j DROP
+	iptables -A INPUT -s 240.0.0.0/5 -j DROP
+	iptables -A INPUT -d 240.0.0.0/5 -j DROP
+	iptables -A INPUT -s 0.0.0.0/8 -j DROP
+	iptables -A INPUT -d 0.0.0.0/8 -j DROP
+	iptables -A INPUT -d 239.255.255.0/24 -j DROP
+	iptables -A INPUT -d 255.255.255.255 -j DROP
 
-echo "* Stop ICMP SMURF Attacks at the Door"
-iptables -A INPUT -p icmp -m icmp --icmp-type address-mask-request -j DROP
-iptables -A INPUT -p icmp -m icmp --icmp-type timestamp-request -j DROP
-iptables -A INPUT -p icmp -m icmp --icmp-type 0 -m limit --limit 1/second -j ACCEPT
+	echo "* Stop ICMP SMURF Attacks at the Door"
+	iptables -A INPUT -p icmp -m icmp --icmp-type address-mask-request -j DROP
+	iptables -A INPUT -p icmp -m icmp --icmp-type timestamp-request -j DROP
+	iptables -A INPUT -p icmp -m icmp --icmp-type 0 -m limit --limit 1/second -j ACCEPT
 
-echo "* Next were going to drop all INVALID packets"
-iptables -A INPUT -m state --state INVALID -j DROP
-iptables -A FORWARD -m state --state INVALID -j DROP
-iptables -A OUTPUT -m state --state INVALID -j DROP
+	echo "* Next were going to drop all INVALID packets"
+	iptables -A INPUT -m state --state INVALID -j DROP
+	iptables -A FORWARD -m state --state INVALID -j DROP
+	iptables -A OUTPUT -m state --state INVALID -j DROP
 
-echo "* Drop VALID but INCOMPLETE packets"
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP 
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP 
-iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP 
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j DROP 
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP 
-iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j DROP
+	echo "* Drop VALID but INCOMPLETE packets"
+	iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP 
+	iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP 
+	iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP 
+	iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j DROP 
+	iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP 
+	iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j DROP
 
-echo "* Enabling RST Flood Protection"
-iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
+	echo "* Enabling RST Flood Protection"
+	iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
 
-echo "* Allowing established DNS requests back in"
-iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
+	echo "* Allowing established DNS requests back in"
+	iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
+fi
 
 # Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open
 if [ ${#openPortRanges[@]} -gt 0 ]; then
