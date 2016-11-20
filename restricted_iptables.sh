@@ -55,22 +55,42 @@ saveTables(){
 	arch=$(uname -m)
 	kernel=$(uname -r)
 	voidLinux=$(cat /proc/version | cut -d " " -f 4)
-	if [ -f /etc/lsb-release ]; then
-		echo " * Saving all iptables settings"
-		/etc/init.d/iptables save
-		/etc/init.d/ip6tables save
+	ubuntuLinux=$(cat /etc/lsb-release | head -n 1 | cut -d = -f 2)
+	if [ $ubuntuLinux == "Ubuntu" ]; then
+		echo "To easily manage iptables a new package named iptables-services must be installed. Proceed? Y/N"
+		read -r packageAnswer
+		if [[ $packageAnswer == "Y" || $packageAnswer == "y" ]]; then
+			apt-get update
+			apt-get install iptables-persistent
+			/etc/init.d/iptables-persistent save
+		fi
 	elif [ -f /etc/debian_version ]; then
 		echo " * Saving all iptables settings"
 		iptables-save > /etc/iptables/rules.v4
 		ip6tables-save > /etc/iptables/rules.v6
 	elif [ -f /etc/redhat-release ]; then
 		echo " * Saving all iptables settings"
-		iptables-save > /etc/sysconfig/iptables
-		ip6tables-save > /etc/sysconfig/ip6tables
+		echo "To easily manage iptables a new package named iptables-services must be installed. Proceed? Y/N"
+		read -r packageAnswer
+		if [[ $packageAnswer == "Y" || $packageAnswer == "y" ]]; then
+			yum install -y iptables-services
+			systemctl enable iptables.service
+			/usr/libexec/iptables/iptables.init save
+		fi
+		echo "It is necessary to disable firewalld if using iptables. Proceed? Y/N"
+		read -r firewallAnswer
+		if [[ $firewallAnswer == "Y" || $firewallAnswer == "y" ]]; then
+			echo "User entered: $firewallAnswer - Disabling firewalld"
+			systemctl disable firewalld
+		fi
 	elif [ $voidLinux == "(xbps-builder@build.voidlinux.eu)" ]; then
 		echo " * Saving all iptables settings"
 		iptables-save > /etc/iptables/iptables.rules
 		ip6tables-save > /etc/iptables/ip6tables.rules
+	elif [ -f /etc/lsb-release ]; then
+		echo " * Saving all iptables settings"
+		/etc/init.d/iptables save
+		/etc/init.d/ip6tables save
 	else
 		echo "Warning: Your distribution was unable to be detected which means the"
 		echo "iptables rules are unable to be automatically saved and made persistent."
