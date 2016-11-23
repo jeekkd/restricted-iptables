@@ -116,7 +116,7 @@ enableOutboundConnections=()
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.
 # Note: For your torrent client turn off random ports and select a port, then enter that here
-WEB=80
+HTTP=80
 DNS=53
 SSL=443
 SSH=22

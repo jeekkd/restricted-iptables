@@ -1,10 +1,15 @@
 Purpose
 ===
 
-This script will stop most UDP Floods, SYN Floods, TCP Floods, Handshake Exploits
-XMAS Packets, Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally 
-types of connections that are allowed in or out over a particular port etc is restricted to the
-following, operating in a default deny for all input, output, and forwarding tables:  
+This is a configurable iptables firewall script, meant to make complex firewalls easier. 
+
+Extended purpose
+===
+
+This script will stop most UDP Floods, SYN Floods, TCP Floods, Handshake Exploits, XMAS Packets, 
+Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally types of connections that are 
+allowed in or out over a particular port etc is restricted to the following, operating in a default 
+deny for all input, output, and forwarding tables:  
 
 * Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
 * Denies all uninitiated ipv6 inbound connections
@@ -13,16 +18,22 @@ following, operating in a default deny for all input, output, and forwarding tab
 coming inbound
 * Allows new and established outbound connections for both ipv4 and ipv6          
 
-Additonal ports that might be required such as 6667 for IRC can be added, in the variables section
-below I will make examples to make adding new ports for inbound and/or outbound connections easier.
+Additonal ports that might be required such as 6667 for IRC can be opened selectively for either or both
+inbound and outbound, this can be done in the opening ports section of configuration.sh. Additionally 
+opening ranges of ports is possible.
+
+All sorts of knobs are available in configuration.sh for enabling or disabling various parts of the
+script. Not everything is mentioned here, so if you are curious I suggest taking a look in configuration.sh
+to see what is available.
 
 > **Note:** 
-> This script requires some tuning to be optimized for a least privledge sort of policy where things
-> work and are locked down. Don't expect to run this and be done, you'll need to continue reading and fill
-> things out for your specific system
+> This script is originally intended to be a restricted firewall, operating in a default deny sort of
+> manner where it is very locked down. Since the beginning it has been expanded, allowing default policies
+> and variables changed as the user desires through the options given. This allows you to suit the firewall
+> to your needs better.
 >
-> Additonally, many of the default behaviors can be overridden with the given variables at the top of
-> the script if you do not like it so restricted.
+> This script requires you to fill out the variables in configuration.sh to your preference before running
+> it. Otherwise it will not work as it is missing information is requires to properly set the firewall.
 
 Pictures
 ===
@@ -41,87 +52,8 @@ Setting the variables
 ===
 
 Within configuration.sh there are variables which must be filled out, this requires a little bit of 
-configuration to adjust it to your specific needs. I will outline some examples below for what to expect 
-and what this series of options requires.
-
-- The first set of variables are simple Y or N questions which outline whether a specific thing to be 
-allowed or blocked depending which question
-
-```
-# Allow OpenVPN to establish? Y/N
-allowVPN=Y
-# Allow inbound pings? Y/N
-allowPINGS=N
-# Allow inbound SSH? Y/N
-allowSSH=N
-# Allow inbound traffic on port 80/443? Y/N
-allowHTTP=N
-# Allow inbound/outbound torrent traffic? Y/N
-allowTorrents=Y
-# Allowing traffic forwarding between internal interfaces such as eth0 and wlan0? Y/N
-internalForward=N
-# Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
-# If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=Y
-# Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=Y
-```
-
-- The following is asking the default behavior for each type of table. As shown inbound, outbound, and
-forwarding chains for both ipv4 and ipv6 accept a DROP, REJECT, or ACCEPT here allowing granular configuration
-
-```
-####################################################################################################
-# The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
-# Read the definitions above to aid in deciding what to enter
-####################################################################################################
-# What should the default input policy for ipv4 be?
-inputPolicy=DROP
-# What should the default outbound policy for ipv4 be?
-outputPolicy=ACCEPT
-# What should the default forwarding policy for ipv4 be?
-forwardPolicy=DROP
-# What should the default input policy for ipv6 be?
-ipv6InputPolicy=DROP
-# What should the default out policy for ipv6 be?
-ipv6OutputPolicy=DROP
-# What should the default forwarding policy for ipv6 be?
-ipv6ForwardPolicy=DROP
-```
-
-- The next bit consists of two arrays, they are for each inbound and outbound ports. These can be enabled
-or disabled by setting 'Y' or 'N' to each one individually. 
-
-The first is for allowing new inbound connections over a specific port. An example of this is allowing
-someone to SSH into your machine. So you might enter port 22 in this section to allow that through
-
-The second, this is allowing outbound new and established connections to get out of the machine. Anything 
-extra such as 6667 for IRC must be entered here to be allowed out. 
-
-- In the event you changed your default ports or use a different torrent client then transmission etc
-you may change the default ports in this section here
-
-```
-# Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
-# configuration uses a different port.
-# Note: For your torrent client turn off random ports and select a port, then enter that here
-WEB=80
-DNS=53
-SSL=443
-SSH=22
-TORRENTS=51413
-```
-
-- Next is setting your interface names. You can check what yours are by issuing 'ifconfig' in your terminal
-
-```
-# Change accordingly to your interface naming scheme and the interfaces you are using.
-# Default is the 'old' naming scheme for Linux boxes, change to the new or BSD style if
-# required for your box
-ETH=eth0
-WLAN=wlan0
-TUN=tun0
-```
+configuration to adjust it to your specific needs. Each section is thoroughly commented so read them 
+at each step and you will not have any issues.
 
 
 How to use
@@ -136,7 +68,7 @@ git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-ipt
 - This will make the script readable, writable, and executable to root and your user. 
 
 ```
-sudo chmod 770 restricted_iptables.sh restore_iptables.sh configuration.sh
+sudo chmod 770 *.sh
 ```
 
 - Open the script in your text editor of choice. You need to edit the variables in the highlighted variables section near the top.
@@ -149,10 +81,10 @@ gedit configuration.sh
 the configuration done within configuration.sh will be imported from restricted_iptables.sh.
 
 ```
-sudo bash restricted_iptables.sh
+sudo bash launch.sh
 ```
 
-By launching the script it will set the rules automatically and as is set in the configuration done.
+By launching the script it set the rules for how you set your answers within the configuration file.
 
 > **Note:** 
 > Make sure you've installed the 'iptables' package for your distribution and if your distribution
@@ -176,7 +108,8 @@ sudo bash restore_iptables.sh
 
 > **Note:** 
 > Rules are stored in /tmp by default, /tmp is cleaned automatically so if you wish to keep your rules 
-> permanently you can either change the location the scripts use or manually save by doing the following
+> permanently you can either change the location the script uses (This is possible near the bottom of 
+configuration.sh) or manually save by doing the following:
 >
 > Saving:
 > ```
@@ -187,3 +120,4 @@ sudo bash restore_iptables.sh
 > ```
  iptables-restore < /path/to/rules/example.rules
 > ```
+> 
