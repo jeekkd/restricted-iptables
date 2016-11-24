@@ -26,25 +26,22 @@ import() {
 import configuration
 import functions
 
-# Trap any ctrl+c and call control_c function provided through functions.sh
-trap control_c SIGINT
-
 ####################################################################################################
 
 echo "Selected which rule set to restore by typing its corresponding number: "
-ls /tmp | grep "iptables.rules" | cat -n
-read answer
-selected_rule=$(ls "$saveRulesDir" | grep "iptables.rules" | sed -n $answer\p)
+ls /tmp | grep -F "iptables.rules" | grep -Fv "unshare" | cat -n
+read ruleAnswer
+selected_rule=$(ls "$saveRulesDir" | grep -F "iptables.rules" | grep -Fv "unshare" | sed -n $ruleAnswer\p)
 echo
 echo "This will restore the rule set: \"$selected_rule\". Are you sure? Y/N"
 read answer
 if [[ $answer == "Y" || $answer == "y" || $answer = "" ]]; then
-	iptables-restore < "$saveRulesDir"/$selected_rule
+	iptables-restore < "$saveRulesDir"/"$selected_rule"
 	if [ $? -eq 0 ]; then
 		saveTables
 		if [ $? -eq 0 ]; then
 			echo
-			echo "Restoration completed!"
+			echo "Restoration completed! Verify with iptables -L and ip6tables -L"
 		fi
 	else
 		echo

@@ -27,13 +27,9 @@ import() {
 import configuration
 import functions
 
-# Trap any ctrl+c and call control_c function provided through functions.sh
-trap control_c SIGINT
-
 # Save existing iptables rules before changing anything. restore_iptables.sh script can be used to 
 # restore old rules if necessary - included in the repo.
 if [ -f "/tmp/original-iptables.rules" ]; then
-	todaysDate=$( date +%H%M-%b-%d-%Y)
 	iptables-save > "$saveRulesDir"/${todaysDate}-iptables.rules
 else 
 	iptables-save > "$saveRulesDir"/original-iptables.rules

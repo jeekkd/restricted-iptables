@@ -16,7 +16,6 @@ get_script_dir() {
 
 # Leave here to get scripts running location
 get_script_dir
-export script_dir
 
 # control_c()
 # Trap Ctrl-C for a quick exit when necessary
@@ -89,3 +88,18 @@ saveTables(){
 get_script_dir() {
 	script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 }
+
+# remTrailingSlash()
+# Remove trailing forward slashes ex: fixedDir=$(rem_trailing_slash $Dir)
+remTrailingSlash() {
+    echo $1 | sed 's/\/*$//g'
+}
+
+# Set the date and time in a standard format for use through out the script
+todaysDate=$( date +%H%M-%b-%d-%Y)
+
+# Remove any trailing forward slash from saveRulesDir that is set in configuration.sh
+saveRulesDir=$(remTrailingSlash "$saveRulesDir")
+
+# Trap any ctrl+c and call control_c function provided through functions.sh
+trap control_c SIGINT

@@ -35,7 +35,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=N
+allowVPN=Y
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -54,10 +54,10 @@ internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=N
+disableIPv6=Y
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=N
+enableQuic=Y
 #
 # Enable or disable additional the security measures such as port scanning attempts, UDP Floods, SYN Floods, 
 # TCP Floods, Handshake Exploits, XMAS Packets, etc. This is not recommended for regular usage, but can be
@@ -74,7 +74,7 @@ disableSecurity=N
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=DROP
+outputPolicy=ACCEPT
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -94,7 +94,8 @@ ipv6ForwardPolicy=DROP
 #
 # Open a range of ports - enter the beginning and end ports seperated by a colon (:). This will allow 
 # TCP/UDP traffic both in and outbound for the entered port range(s). More ranges can be added by separating 
-# each range by a space like so: openPortRanges=(6780:6999 48808:51413 24155:27810)
+# each range by a space like so
+# Example: openPortRanges=(6780:6999 48808:51413 24155:27810)
 openPortRanges=()
 #
 # Enter numerical port values here for NEW uninitiated inbound connections that you want to allow to 
@@ -107,10 +108,11 @@ inNewConnection=()
 # to allow connections outbound on. These are also entered into the input chain to allow established and
 # related connections back in.
 #
-# These are allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP so do not worry about allowing those here
+# The following traffic is allowed out by default: HTTP, HTTPS, SSH, DNS, DHCP. Do not enter any of these
+# here.
 #
 # Example: enableOutboundConnections=(5900 3389 3390 6667)
-enableOutboundConnections=()
+enableOutboundConnections=(32400 71 123 6667 5900 3389 3390 111 2049 8112 9091 873 1048 3000)
 #
 ####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
@@ -128,11 +130,13 @@ TORRENTS=51413
 #
 # NOTE: Do not put an interface for one you are not using. If you just have ethernet, do not fill out wlan
 # as that would mean you have wifi. And vice versa, if you only have wifi do not fill out eth. If you have
-# both then fill them out. Only fill out TUN if you use tunnel interfaces for anything and/or have allowVPN
-# set to 'Y' for yes to allow OpenVPN to establish outbound.
-ETH=
+# both then fill them out. Only fill out TUN if you have tunnel interface(s) for anything.
+#
+# Tip: To view which network interfaces you have, use either 'ifconfig' or 'ip link'
+#
+ETH=eth0
 WLAN=
-TUN=
+TUN=tun0
 #
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
@@ -148,8 +152,4 @@ TCPBurstEst=50
 # Select location to save iptables rules to. This is for the automatic rule backup, used for returning to a
 # previous set of rules through restore_iptables.sh.
 #
-# This must match what is set in the same variable in restore_iptables.sh, so you are saving and restoring 
-# from the same directory. This is by default at /tmp.
-#
-# Note: Omit trailing forward slashes
 saveRulesDir=/tmp

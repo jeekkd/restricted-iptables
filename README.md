@@ -71,14 +71,13 @@ git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-ipt
 sudo chmod 770 *.sh
 ```
 
-- Open the script in your text editor of choice. You need to edit the variables in the highlighted variables section near the top.
+- Open the script in your text editor of choice. You need to read each section and fill it out accordingly
 
 ```
 gedit configuration.sh
 ```
 
-- You will want to make sure you've saved, then launch the main script by doing the following. Do not worry,
-the configuration done within configuration.sh will be imported from restricted_iptables.sh.
+- You will want to make sure you've saved, then launch the main script by doing the following:
 
 ```
 sudo bash launch.sh
