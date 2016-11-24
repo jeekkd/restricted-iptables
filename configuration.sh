@@ -35,7 +35,7 @@
 ########################################## VARIABLES ################################################
 #
 # Allow OpenVPN to establish? Y/N
-allowVPN=Y
+allowVPN=N
 #
 # Allow inbound pings? Y/N
 allowPINGS=N
@@ -54,10 +54,10 @@ internalForward=N
 #
 # Disable IPv6 completely (Y) or use the basic iptables configuration included (N)?
 # If set to 'Y' then you should also assure to set the IPv6 policy below to either DROP or REJECT
-disableIPv6=Y
+disableIPv6=N
 #
 # Allow QUIC (Quick UDP Internet Connections) on port 443 outbound? Y/N
-enableQuic=Y
+enableQuic=N
 #
 # Enable or disable additional the security measures such as port scanning attempts, UDP Floods, SYN Floods, 
 # TCP Floods, Handshake Exploits, XMAS Packets, etc. This is not recommended for regular usage, but can be
@@ -74,7 +74,7 @@ disableSecurity=N
 inputPolicy=DROP
 #
 # Default outbound policy for ipv4
-outputPolicy=ACCEPT
+outputPolicy=DROP
 #
 # Default forwarding policy for ipv4
 forwardPolicy=DROP
@@ -112,7 +112,7 @@ inNewConnection=()
 # here.
 #
 # Example: enableOutboundConnections=(5900 3389 3390 6667)
-enableOutboundConnections=(32400 71 123 6667 5900 3389 3390 111 2049 8112 9091 873 1048 3000)
+enableOutboundConnections=()
 #
 ####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
@@ -134,9 +134,9 @@ TORRENTS=51413
 #
 # Tip: To view which network interfaces you have, use either 'ifconfig' or 'ip link'
 #
-ETH=eth0
+ETH=
 WLAN=
-TUN=tun0
+TUN=
 #
 # Disable traffic in and out of an interface. Answer Y or N here
 disableEth=N
