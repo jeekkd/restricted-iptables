@@ -31,18 +31,60 @@ import functions
 # restore old rules if necessary - included in the repo.
 if [ -f "/tmp/original-iptables.rules" ]; then
 	iptables-save > "$saveRulesDir"/${todaysDate}-iptables.rules
+	ip6tables-save > "$saveRulesDir"/${todaysDate}-ip6tables.rules
+	whichRules=1
 else 
 	iptables-save > "$saveRulesDir"/original-iptables.rules
+	ip6tables-save > "$saveRulesDir"/original-ip6tables.rules
+	whichRules=0
 fi
 
-unshare -n -- sh -c "bash \"$script_dir\"/restricted_iptables.sh ; iptables-save > \"$saveRulesDir\"/${todaysDate}-unshare-iptables.rules"
+unshare -n -- sh -c "bash \"$script_dir\"/restricted-iptables.sh ; iptables-save > \"$saveRulesDir\"/${todaysDate}-unshare-iptables.rules ; ip6tables-save > \"$saveRulesDir\"/${todaysDate}-unshare-ip6tables.rules"
 if [ $? -eq 0 ]; then
 	iptables-restore < "$saveRulesDir"/${todaysDate}-unshare-iptables.rules
+	ip6tables-restore < "$saveRulesDir"/${todaysDate}-unshare-ip6tables.rules
 	if [ $? -eq 0 ]; then
 		saveTables
 		echo "Success: The new iptables rules have been applied"
+	elif [ $? -gt 0 ]; then
+		if [ $whichRules == 0 ]; then
+			rulesToRestore="$saveRulesDir"/original-iptables.rules
+			IPv6rulesToRestore="$saveRulesDir"/original-ip6tables.rules
+		else
+			rulesToRestore="$saveRulesDir"/${todaysDate}-iptables.rules
+			IPv6rulesToRestore="$saveRulesDir"/${todaysDate}-ip6tables.rules
+		fi	
+		echo "Error: A non-zero exit code has occured attempting the apply the following rules: "
+		echo "$saveRulesDir/${todaysDate}-unshare-iptables.rules."
+		echo
+		echo "Restoring previous ruleset of: "
+		iptables-restore < $rulesToRestore
+		ip6tables-restore < $IPv6rulesToRestore
+		if [ $? -eq 0 ]; then
+			saveTables
+			echo "Success: The previous iptables rules have been re-applied"
+		fi
+	fi
+fi
+
+echo
+read -t 30 -p "Press any key within 30 seconds to confirm that you still have connectivity... "
+if (( $? >= 128 )); then
+	echo
+	echo "Error: No key press registered, connectivity must have been severed. Restoring previous"
+	echo "set of rules."
+	if [ $whichRules == 0 ]; then
+		rulesToRestore="$saveRulesDir"/original-iptables.rules
+		IPv6rulesToRestore="$saveRulesDir"/original-ip6tables.rules
 	else
-		echo "Error: A non-zero exit code has occured attempting the restore the following rules: "
-		echo "\"$saveRulesDir\"/${todaysDate}-unshare-iptables.rules"
+		rulesToRestore="$saveRulesDir"/${todaysDate}-iptables.rules
+		IPv6rulesToRestore="$saveRulesDir"/${todaysDate}-ip6tables.rules
+	fi	
+	
+	iptables-restore < $rulesToRestore
+	ip6tables-restore < $IPv6rulesToRestore
+	if [ $? -eq 0 ]; then
+		saveTables
+		echo "Success: The previous iptables rules have been re-applied"
 	fi
 fi

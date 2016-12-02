@@ -1,7 +1,7 @@
 Purpose
 ===
 
-This is a configurable iptables firewall script, meant to make complex firewalls easier. 
+This is a configurable iptables firewall script, meant to make firewalls easier. 
 
 Extended purpose
 ===
@@ -65,29 +65,28 @@ How to use
 git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-iptables
 ```
 
-- This will make the script readable, writable, and executable to root and your user. 
+- This will make the scripts readable, writable, and executable to root and your user. 
 
 ```
-sudo chmod 770 *.sh
+chmod 770 *.sh
 ```
 
-- Open the script in your text editor of choice. You need to read each section and fill it out accordingly
+- Open the configuration.sh script in your text editor of choice. You need to read each section and fill it out accordingly
 
 ```
 gedit configuration.sh
 ```
 
-- You will want to make sure you've saved, then launch the main script by doing the following:
+- Make sure you've saved, then launch the main script by doing the following:
 
 ```
 sudo bash launch.sh
 ```
 
-By launching the script it set the rules for how you set your answers within the configuration file.
-
 > **Note:** 
-> Make sure you've installed the 'iptables' package for your distribution and if your distribution
-> such as Gentoo requires you to configure your own kernel [assure that iptables is configured/enabled](https://wiki.gentoo.org/wiki/Iptables)
+> Make sure you have installed the 'iptables' package for your distribution and if your distribution
+> such as Gentoo requires you to configure your own kernel [assure that the various iptables kernel 
+modules are enabled](https://wiki.gentoo.org/wiki/Iptables)
 
 Restoring previous rules
 ===
@@ -101,7 +100,7 @@ in time to restore your rules to.
 - To restore your old rules launch the script as such and follow the prompts
 
 ```
-sudo bash restore_iptables.sh
+sudo bash restore-iptables.sh
 ```
 
 
@@ -119,4 +118,5 @@ configuration.sh) or manually save by doing the following:
 > ```
  iptables-restore < /path/to/rules/example.rules
 > ```
-> 
+> For your specific distribution you will want to search how to permanently save your rules. 
+>

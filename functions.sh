@@ -40,6 +40,8 @@ saveTables(){
 		if [[ $packageAnswer == "Y" || $packageAnswer == "y" ]]; then
 			apt-get update
 			apt-get install iptables-persistent
+			echo
+			echo " * Saving all iptables settings"
 			/etc/init.d/iptables-persistent save
 		fi
 	elif [ -f /etc/debian_version ]; then
@@ -49,15 +51,33 @@ saveTables(){
 		ip6tables-save > /etc/iptables/rules.v6
 		iptables-restore < /etc/iptables/rules.v4
 		ip6tables-restore < /etc/iptables/rules.v6
+	elif [ -f /etc/arch-release ]; then	
+		echo " * Saving all iptables settings"
+		iptables-save > /etc/iptables/iptables.rules
+		ip6tables-save > /etc/iptables/ip6tables.rules
+		echo "Enable iptables at boot and start service? Y/N"
+		read -r systemdAnswer
+		if [[ $systemdAnswer == "Y" || $systemdAnswer == "y" ]]; then
+			echo "User entered: $systemdAnswer - enabling and starting iptables services"
+			systemctl enable iptables.service
+			systemctl enable ip6tables.service
+			systemctl start iptables.service
+			systemctl start ip6tables.service
+		else
+			echo "Skipping starting and enabling iptables systemd units"
+		fi
 	elif [ -f /etc/redhat-release ]; then
 		echo " * Saving all iptables settings"
 		echo "To easily manage iptables a new package named iptables-services must be installed. Proceed? Y/N"
 		read -r packageAnswer
 		if [[ $packageAnswer == "Y" || $packageAnswer == "y" ]]; then
+			echo
 			yum install -y iptables-services
+			echo
 			systemctl enable iptables.service
 			/usr/libexec/iptables/iptables.init save
 		fi
+		echo
 		echo "It is necessary to disable firewalld if using iptables. Proceed? Y/N"
 		read -r firewallAnswer
 		if [[ $firewallAnswer == "Y" || $firewallAnswer == "y" ]]; then

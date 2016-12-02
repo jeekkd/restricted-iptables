@@ -146,6 +146,7 @@ disableTun=N
 # TCPBurstNew: # of Packets a new connection can send in 1 request
 # TCPBurstEst: # of Packets an existing connection can send in 1 request
 # IF YOU ARE USING CLOUD FLARE AND EXPERIENCE ISSUES INCREASE TCPBurst
+# Defaults: TCPBurstNew - 200	TCPBurstEst - 50
 TCPBurstNew=200
 TCPBurstEst=50
 
