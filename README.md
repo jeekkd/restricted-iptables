@@ -38,7 +38,7 @@ to see what is available.
 Pictures
 ===
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables.png?cache=)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-00.png?cache=)
 
 By default before each time the script is ran your existing rules are saved. There is a companion script 
 called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
@@ -46,7 +46,7 @@ set. It saves an original copy of your rules the first time the script is ran, s
 still it will create time and date stamped rules files each time after to give you a selection of which 
 point in time to restore your rules to.
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:restore_complete.png?w=600&h=133&tok=60f97e)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-01.png?cache=)
 
 Setting the variables
 ===
@@ -92,7 +92,7 @@ Restoring previous rules
 ===
 
 By default before each time the script is ran your existing rules are saved. There is a companion script 
-called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
+called 'restore-iptables.sh' that will restore your iptables rules back to those before the new rules were 
 set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
 still it will create time and date stamped rules files each time after to give you a selection of which point 
 in time to restore your rules to.
