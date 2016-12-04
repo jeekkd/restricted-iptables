@@ -36,6 +36,9 @@ import() {
 import configuration
 import functions
 
+# Calling fixCase() function to convert table policy variables to uppercase before use
+fixCase
+
 # Flush old rules, old custom tables
 # Note: If there is an error deleting existing chains and you have modified this script
 # then assure to remove references to them first
@@ -244,8 +247,8 @@ fi
 
 # Allow DNS traffic out if inputpolicy is set to drop
 if  [[ "$inputPolicy" == DROP ]] || [[ "$inputPolicy" == drop ]]; then
-	iptables -A INPUT -p tcp --dport 53 -m state --state ESTABLISHED,RElATED -j ACCEPT
-	iptables -A INPUT -p udp --dport 53 -m state --state ESTABLISHED,RElATED -j ACCEPT
+	iptables -A INPUT -p tcp --dport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p udp --dport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
 # If the inNewConnection array has contents it will enter the array values into iptables. This for for 

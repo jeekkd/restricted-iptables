@@ -121,5 +121,17 @@ todaysDate=$( date +%H%M-%b-%d-%Y)
 # Remove any trailing forward slash from saveRulesDir that is set in configuration.sh
 saveRulesDir=$(remTrailingSlash "$saveRulesDir")
 
+# fixCase()
+# Convert the contents of all important variables from lower to upper case to assure
+# the variables are upper case which is required for iptables table names
+fixCase() {
+	inputPolicy=$(echo "$inputPolicy" | tr '[:lower:]' '[:upper:]')
+	outputPolicy=$(echo "$outputPolicy" | tr '[:lower:]' '[:upper:]')
+	forwardPolicy=$(echo "$forwardPolicy" | tr '[:lower:]' '[:upper:]')
+	ipv6InputPolicy=$(echo "$ipv6InputPolicy" | tr '[:lower:]' '[:upper:]')
+	ipv6OutputPolicy=$(echo "$ipv6OutputPolicy" | tr '[:lower:]' '[:upper:]')
+	ipv6ForwardPolicy=$(echo "$ipv6ForwardPolicy" | tr '[:lower:]' '[:upper:]')
+}
+
 # Trap any ctrl+c and call control_c function provided through functions.sh
 trap control_c SIGINT

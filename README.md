@@ -38,6 +38,9 @@ to see what is available.
 Pictures
 ===
 
+After the configuration.sh file is set with your configuration, this is what running launch.sh
+looks like
+
 ![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-00.png?cache=)
 
 By default before each time the script is ran your existing rules are saved. There is a companion script 
