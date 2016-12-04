@@ -65,6 +65,8 @@ enableQuic=N
 disableSecurity=N
 #
 ####################################################################################################
+#									Default chain policies
+#
 # The following policies can accept the following different inputs, DROP, REJECT, or ACCEPT
 # 1. Consider reading the definitions above to help in deciding what to enter
 # 2. Type your selection in UPPER CASE
@@ -114,6 +116,16 @@ inNewConnection=()
 # Example: enableOutboundConnections=(5900 3389 3390 6667)
 enableOutboundConnections=()
 #
+####################################################################################################
+# 									Network restrictions section
+####################################################################################################
+#
+# Inbound access restriction for SSH by network. Networks entered here are allowed to access SSH if
+# 'Allow inbound SSH' is set to 'Y'. Enter a network and its subnet in the format of
+# 10.0.0.0/16 which is network address then forward slash (/) then the CIDR. Multiple networks can be 
+# entered if they are space delimited like so: sshNetworkRestrict=(192.168.1.0/24 10.0.0.0 255.255.0.0/16)
+sshNetworkRestrict=()
+
 ####################################################################################################
 # Ports for the labeled traffic types. Change accordingly if your torrent client or SSH
 # configuration uses a different port.

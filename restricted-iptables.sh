@@ -190,8 +190,8 @@ fi
 
 # Allowing inbound/outbound traffic. This occurs if allowTorrents was entered as 'Y' to allow torrent traffic
 if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
-	iptables -A INPUT -p tcp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
-	iptables -A INPUT -p udp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p tcp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -p udp --dport "$TORRENTS" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 fi
 
 # This occurs if allowPINGS was entered as 'No' to block all incoming pings
@@ -203,7 +203,17 @@ fi
 
 # This occurs if allowSSH is entered as 'Y' to allow incoming SSH connections
 if  [[ $allowSSH == "Y" ]] || [[ $allowSSH == "y" ]]; then
-	iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
+	if [ ${#sshNetworkRestrict[@]} -gt 0 ]; then
+		sshNetworkRestrictLength=${#sshNetworkRestrict[@]}
+		adjustedLength=$(( sshNetworkRestrictLength - 1 ))
+
+		for i in $( eval echo {0..$adjustedLength} )
+		do
+			iptables -A INPUT -p tcp --source "${sshNetworkRestrict[$i]}" --dport $SSH -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT 
+		done
+	else
+		iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
+	fi
 else
 	iptables -A INPUT -p tcp -m state --state ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 fi
