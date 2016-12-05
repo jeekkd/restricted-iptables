@@ -48,6 +48,13 @@ iptables --delete-chain
 ip6tables --flush
 ip6tables --delete-chain
 
+# Logging for debugging and troubleshooting
+if  [[ $extensiveLogging == "Y" ]] || [[ $extensiveLogging == "y" ]]; then
+	iptables -A INPUT -j LOG
+	iptables -A OUTPUT -j LOG
+	iptables -A FORWARD -j LOG
+fi
+
 # IPv4 default policies
 iptables -P INPUT "$inputPolicy"
 iptables -P OUTPUT "$outputPolicy"
@@ -122,10 +129,6 @@ if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
 	# Enabling the 3 Way Hand Shake and limiting TCP Requests
 	# All TCP sessions should begin with SYN
 	iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
-	# Allow established and related packets
-	iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -p tcp --dport $HTTP -m state --state NEW -m limit --limit 50/minute --limit-burst $TCPBurstNew -j ACCEPT
-	iptables -A INPUT -m state --state RELATED,ESTABLISHED -m limit --limit 50/second --limit-burst $TCPBurstEst -j ACCEPT
 
 	# Force Fragments packets check for inbound traffic
 	# Packets with incoming fragments drop them. This attack result into Linux server panic such data loss.
@@ -138,24 +141,18 @@ if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
 	iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
 	# Adding Protection from LAND Attacks. Remove ranges that are required
-	iptables -A INPUT -s 10.0.0.0/8 -j DROP
 	iptables -A INPUT -s 169.254.0.0/16 -j DROP
 	iptables -A INPUT -s 172.16.0.0/12 -j DROP
 	iptables -A INPUT -s 127.0.0.0/8 -j DROP
-	iptables -A INPUT -s 192.168.0.0/24 -j DROP
 	iptables -A INPUT -s 224.0.0.0/4 -j DROP
 	iptables -A INPUT -d 224.0.0.0/4 -j DROP
 	iptables -A INPUT -s 240.0.0.0/5 -j DROP
 	iptables -A INPUT -d 240.0.0.0/5 -j DROP
-	iptables -A INPUT -s 0.0.0.0/8 -j DROP
-	iptables -A INPUT -d 0.0.0.0/8 -j DROP
 	iptables -A INPUT -d 239.255.255.0/24 -j DROP
-	iptables -A INPUT -d 255.255.255.255 -j DROP
 
 	# Stop ICMP SMURF Attacks
 	iptables -A INPUT -p icmp -m icmp --icmp-type address-mask-request -j DROP
 	iptables -A INPUT -p icmp -m icmp --icmp-type timestamp-request -j DROP
-	iptables -A INPUT -p icmp -m icmp --icmp-type 0 -m limit --limit 1/second -j ACCEPT
 
 	# Next were going to drop all INVALID packets
 	iptables -A INPUT -m state --state INVALID -j DROP
@@ -172,11 +169,6 @@ if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
 
 	# Enabling RST Flood Protection
 	iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
-fi
-
-# Allowing established DNS requests back in
-if  [[ "$inputPolicy" == DROP ]] || [[ "$inputPolicy" == drop ]]; then
-	iptables -A INPUT -p udp -m udp --dport "$DNS" -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
 # Relates to the openPortRanges array where the user is asked to enter port range(s) they wish to open
@@ -217,8 +209,6 @@ if  [[ $allowSSH == "Y" ]] || [[ $allowSSH == "y" ]]; then
 	else
 		iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 	fi
-else
-	iptables -A INPUT -p tcp -m state --state ESTABLISHED,RELATED --dport $SSH -j ACCEPT
 fi
 
 # This occurs if allowHTTP is entered as 'Y' to allow new incoming HTTP(S) connections.
@@ -227,28 +217,6 @@ fi
 if  [[ $allowHTTP == "Y" ]] || [[ $allowHTTP == "y" ]]; then
 	iptables -A INPUT -p tcp --dport "$HTTP" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -p tcp --dport "$SSL" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-else
-	iptables -A INPUT -p tcp --dport "$HTTP" -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -p tcp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
-fi
-
-if  [[ $allowVPN == "Y" ]] || [[ $allowVPN == "y" ]]; then
-	iptables -A INPUT -i $TUN -p tcp --dport 1194:1195 -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -i $ETH -p tcp --dport 1194:1195 -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -i $TUN -p udp --dport 1194:1195 -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -i $ETH -p udp --dport 1194:1195 -m state --state ESTABLISHED,RELATED -j ACCEPT
-fi
-
-# If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
-# Google is experimenting with for Google chrome and its other services to eventually replace TCP
-if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
-	iptables -A INPUT -p udp --dport "$SSL" -m state --state ESTABLISHED,RELATED -j ACCEPT
-fi
-
-# Allow DNS traffic out if inputpolicy is set to drop
-if  [[ "$inputPolicy" == DROP ]] || [[ "$inputPolicy" == drop ]]; then
-	iptables -A INPUT -p tcp --dport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -p udp --dport 53 -m state --state ESTABLISHED,RELATED -j ACCEPT
 fi
 
 # If the inNewConnection array has contents it will enter the array values into iptables. This for for 
@@ -264,27 +232,16 @@ if [ ${#inNewConnection[@]} -gt 0 ]; then
 	done
 fi
 
-# This is similar to the above, except it uses the enableOutboundConnections array. The purpose of this
-# is to allow established and related connections back in on outbound connections using the same ports 
-# entered into the array
-if [ ${#enableOutboundConnections[@]} -gt 0 ]; then
-	enableOutboundConnectionsLength=${#enableOutboundConnections[@]}
-	adjustedLength=$(( enableOutboundConnectionsLength - 1 ))
-
-	for i in $( eval echo {0..$adjustedLength} )
-	do
-		iptables -A INPUT -p tcp --dport "${enableOutboundConnections[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
-		iptables -A INPUT -p udp --dport "${enableOutboundConnections[$i]}" -m state --state ESTABLISHED,RElATED -j ACCEPT
-	done
-fi
+# Allow packets from established and related sessions back in
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Drop all other inbound traffic if inputPolicy is set to DROP
-if  [[ $inputPolicy == DROP ]] || [[ $inputPolicy == drop ]]; then
+if  [[ "$inputPolicy" == DROP ]]; then
 	iptables -A INPUT -j DROP
 fi
 
 # Drop all other inbound traffic if inputPolicy is set to REJECT
-if  [[ $inputPolicy == REJECT ]] || [[ $inputPolicy == reject ]]; then
+if  [[ "$inputPolicy" == REJECT ]]; then
 	iptables -A INPUT -j REJECT
 fi
 
@@ -313,17 +270,22 @@ fi
 # and paste this, change the variable to your own, change the ports, etc or change the ports in
 # this one if you are not using OpenVPN at all
 if  [[ $allowVPN == "Y" ]] || [[ $allowVPN == "y" ]]; then	
-	iptables -A OUTPUT -o $TUN -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	iptables -A OUTPUT -o $ETH -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -p tcp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -p tcp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+else
+	# Allowing HTTP over port $HTTP outbound
+	iptables -A OUTPUT -p tcp --dport $HTTP -j ACCEPT
+
+	# Allowing HTTPS Port $SSL outbound
+	iptables -A OUTPUT -p tcp --dport $SSL -j ACCEPT
 	
-	iptables -A OUTPUT -o $TUN -p tcp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	iptables -A OUTPUT -o $ETH -p tcp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	
-	iptables -A OUTPUT -o $TUN -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	iptables -A OUTPUT -o $ETH -p udp --dport 1194:1195 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	
-	iptables -A OUTPUT -o $TUN -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	iptables -A OUTPUT -o $ETH -p udp --dport 443 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+	# If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
+	# Google is experimenting with for Google chrome and its other services to eventually replace TCP
+	if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
+		iptables -A OUTPUT -p udp --dport $SSL -j ACCEPT
+	fi
 fi
 
 # If there are any entered ports in the enableOutboundConnections array this will have rules created to 
@@ -356,41 +318,30 @@ fi
 # If allowTorrents has been set to 'Y' then torrent traffic will be allowed out on both udp and tcp
 # for the entered torrent port
 if  [[ $allowTorrents == "Y" ]] || [[ $allowTorrents == "y" ]]; then
-	iptables -A OUTPUT -p tcp -m tcp --dport $TORRENTS -j ACCEPT
-	iptables -A OUTPUT -p udp -m udp --dport $TORRENTS -j ACCEPT
+	iptables -A OUTPUT -p tcp --dport $TORRENTS -j ACCEPT
+	iptables -A OUTPUT -p udp --dport $TORRENTS -j ACCEPT
 fi
 
-# If enableQuic has been set to 'Y' this is enabled. This is Quick UDP Internet Connections proptocol that
-# Google is experimenting with for Google chrome and its other services to eventually replace TCP
-if  [[ $enableQuic == "Y" ]] || [[ $enableQuic == "y" ]]; then
-	iptables -A OUTPUT -p udp -m udp --dport $SSL -j ACCEPT
-fi
-
-# Allowing DNS over port $DNS outbound"
-iptables -A OUTPUT -p udp -m udp --dport $DNS -j ACCEPT
-
-# Allowing HTTP over port $HTTP outbound"
-iptables -A OUTPUT -p tcp -m tcp --dport $HTTP -j ACCEPT
-
-# Allowing HTTPS Port $SSL outbound"
-iptables -A OUTPUT -p tcp -m tcp --dport $SSL -j ACCEPT
+# Allowing DNS over port $DNS outbound
+iptables -A OUTPUT -p udp --dport $DNS -j ACCEPT
+iptables -A OUTPUT -p tcp --dport $DNS -j ACCEPT
 
 # Allowing SSH Port $SSH outbound"
-iptables -A OUTPUT -p tcp -m tcp --dport $SSH -j ACCEPT
+iptables -A OUTPUT -p tcp --dport $SSH -j ACCEPT
 
 # Allowing outbound PING Type 8 ICMP Requests, so we don't break things."
 iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 
-# Allowing DHCP outbound"
+# Allow DHCP / broadcasts outbound
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
 # Dropping all other outbound traffic if outputPolicy is set to DROP
-if  [[ $outputPolicy == DROP ]] || [[ $outputPolicy == drop ]]; then
+if  [[ "$outputPolicy" == DROP ]]; then
 	iptables -A OUTPUT -j DROP
 fi
 
 # Dropping all other outbound traffic if outputPolicy is set to REJECT
-if  [[ $outputPolicy == REJECT ]] || [[ $outputPolicy == reject ]]; then
+if  [[ "$outputPolicy" == REJECT ]]; then
 	iptables -A OUTPUT -j REJECT
 fi
 
@@ -417,12 +368,12 @@ if  [[ $internalForward == "N" ]] || [[ $internalForward == "n" ]]; then
 fi
 
 # Dropping all other forwarded traffic if forwardPolicy is set to DROP
-if  [[ $forwardPolicy == DROP ]] || [[ $forwardPolicy == drop ]]; then
+if  [[ "$forwardPolicy" == DROP ]]; then
 	iptables -A FORWARD -j DROP
 fi
 
 # Dropping all other forwarded traffic if forwardPolicy is set to DROP
-if  [[ $forwardPolicy == REJECT ]] || [[ $forwardPolicy == reject ]]; then
+if  [[ "$forwardPolicy" == REJECT ]]; then
 	iptables -A FORWARD -j REJECT
 fi
 
@@ -437,11 +388,11 @@ else
 	ip6tables -A INPUT -p ipv6-icmp -j ACCEPT
 fi
 
-if  [[ $ipv6InputPolicy == DROP ]] || [[ $ipv6InputPolicy == drop ]]; then
+if  [[ "$ipv6InputPolicy" == DROP ]]; then
 	ip6tables -A INPUT -j DROP
 fi
 
-if  [[ $ipv6InputPolicy == REJECT ]] || [[ $ipv6InputPolicy == reject ]]; then
+if  [[ "$ipv6InputPolicy" == REJECT ]]; then
 	ip6tables -A INPUT -j REJECT
 fi
 
@@ -452,11 +403,11 @@ fi
 # Allow outbound pings 
 ip6tables -A OUTPUT -o $ETH -p ipv6-icmp -j ACCEPT
 
-if  [[ $ipv6OutputPolicy == DROP ]] || [[ $ipv6OutputPolicy == drop ]]; then
+if  [[ "$ipv6OutputPolicy" == DROP ]]; then
 	ip6tables -A OUTPUT -j DROP
 fi
 
-if  [[ $ipv6OutputPolicy == REJECT ]] || [[ $ipv6OutputPolicy == reject ]]; then
+if  [[ "$ipv6OutputPolicy" == REJECT ]]; then
 	ip6tables -A OUTPUT -j REJECT
 fi
 
@@ -464,11 +415,11 @@ fi
 # 										IPv6 FORWARDING
 ####################################################################################################
 
-if  [[ $ipv6ForwardPolicy == DROP ]] || [[ $ipv6ForwardPolicy == drop ]]; then
+if  [[ "$ipv6ForwardPolicy" == DROP ]]; then
 	ip6tables -A FORWARD -j DROP
 fi
 
-if  [[ $ipv6ForwardPolicy == REJECT ]] || [[ $ipv6ForwardPolicy == reject ]]; then
+if  [[ "$ipv6ForwardPolicy" == REJECT ]]; then
 	ip6tables -A FORWARD -j REJECT
 fi
 
@@ -480,17 +431,17 @@ if  [[ $disableIPv6 == Y ]] || [[ $disableIPv6 == y ]]; then
 	ip6tables --flush
 	ip6tables --delete-chain
 	# Input
-	if  [[ $ipv6InputPolicy == ACCEPT ]] || [[ $ipv6InputPolicy == accept ]]; then
+	if  [[ "$ipv6InputPolicy" == ACCEPT ]]; then
 		ip6tables -A INPUT -j DROP
 	fi
 	
 	# Output
-	if  [[ $ipv6OutputPolicy == ACCEPT ]] || [[ $ipv6OutputPolicy == accept ]]; then
+	if  [[ "$ipv6OutputPolicy" == ACCEPT ]]; then
 		ip6tables -A OUTPUT -j DROP
 	fi
 	
 	# Forwarding
-	if  [[ $ipv6ForwardPolicy == ACCEPT ]] || [[ $ipv6ForwardPolicy == accept ]]; then
+	if  [[ "$ipv6ForwardPolicy" == ACCEPT ]]; then
 		ip6tables -A FORWARD -j DROP
 	fi
 fi
