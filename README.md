@@ -3,28 +3,9 @@ Purpose
 
 This is a configurable iptables firewall script, meant to make firewalls easier. 
 
-Extended purpose
-===
-
-This script will stop most UDP Floods, SYN Floods, TCP Floods, Handshake Exploits, XMAS Packets, 
-Smurf Attacks, ICMP Bombs, LAND attacks and RST Floods. Additionally types of connections that are 
-allowed in or out over a particular port etc is restricted to the following, operating in a default 
-deny for all input, output, and forwarding tables:  
-
-* Denies all uninitiated ipv4 inbound connections except for torrents (if desired) so peers can connect
-* Denies all uninitiated ipv6 inbound connections
-* Drops inbound pings, allows outbound for both ipv4 and ipv6
-* Allows established connections inbound on ports 67/68, 80, 53, 443, 1994/1995 but NOT new connections
-coming inbound
-* Allows new and established outbound connections for both ipv4 and ipv6          
-
-Additonal ports that might be required such as 6667 for IRC can be opened selectively for either or both
-inbound and outbound, this can be done in the opening ports section of configuration.sh. Additionally 
-opening ranges of ports is possible.
-
 All sorts of knobs are available in configuration.sh for enabling or disabling various parts of the
-script. Not everything is mentioned here, so if you are curious I suggest taking a look in configuration.sh
-to see what is available.
+script. If you are curious what is available I suggest taking a look in configuration.sh to see, there 
+is a fair amount you can do.
 
 > **Note:** 
 > This script is originally intended to be a restricted firewall, operating in a default deny sort of
