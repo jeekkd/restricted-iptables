@@ -24,6 +24,11 @@ looks like
 
 ![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-00.png?cache=)
 
+If your rule changes sever your connection, say you were on SSH but forgot to allow it, automatically
+your most recent rules will be re-applied.
+
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-02.png?cache=)
+
 By default before each time the script is ran your existing rules are saved. There is a companion script 
 called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
 set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
