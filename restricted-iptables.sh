@@ -71,7 +71,7 @@ if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
 fi
 
 ####################################################################################################
-# 										INBOUND
+#						INBOUND
 ####################################################################################################
 
 # Disable traffic into the specified interfaces
@@ -141,14 +141,14 @@ if  [[ $disableSecurity == "N" ]] || [[ $disableSecurity == "n" ]]; then
 	iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
 
 	# Adding Protection from LAND Attacks. Remove ranges that are required
-	iptables -A INPUT -s 169.254.0.0/16 -j DROP
-	iptables -A INPUT -s 172.16.0.0/12 -j DROP
-	iptables -A INPUT -s 127.0.0.0/8 -j DROP
-	iptables -A INPUT -s 224.0.0.0/4 -j DROP
-	iptables -A INPUT -d 224.0.0.0/4 -j DROP
-	iptables -A INPUT -s 240.0.0.0/5 -j DROP
-	iptables -A INPUT -d 240.0.0.0/5 -j DROP
-	iptables -A INPUT -d 239.255.255.0/24 -j DROP
+	#iptables -A INPUT -s 169.254.0.0/16 -j DROP
+	#iptables -A INPUT -s 172.16.0.0/12 -j DROP
+	#iptables -A INPUT -s 127.0.0.0/8 -j DROP
+	#iptables -A INPUT -s 224.0.0.0/4 -j DROP
+	#iptables -A INPUT -d 224.0.0.0/4 -j DROP
+	#iptables -A INPUT -s 240.0.0.0/5 -j DROP
+	#iptables -A INPUT -d 240.0.0.0/5 -j DROP
+	#iptables -A INPUT -d 239.255.255.0/24 -j DROP
 
 	# Stop ICMP SMURF Attacks
 	iptables -A INPUT -p icmp -m icmp --icmp-type address-mask-request -j DROP
@@ -211,6 +211,12 @@ if  [[ $allowSSH == "Y" ]] || [[ $allowSSH == "y" ]]; then
 	fi
 fi
 
+# Allows access to http(s) services on localhost from localhost
+if  [[ $allowLocalhostHTTP == "Y" ]] || [[ $allowLocalhostHTTP == "y" ]]; then
+	iptables -A INPUT -p tcp -s localhost --dport 443 -j ACCEPT
+	iptables -A INPUT -p tcp -s localhost --dport 80 -j ACCEPT
+fi
+
 # This occurs if allowHTTP is entered as 'Y' to allow new incoming HTTP(S) connections.
 # This is needed for things such as web servers. Else it will only allow established connections
 # back in on ports 80, 443
@@ -246,7 +252,7 @@ if  [[ "$inputPolicy" == REJECT ]]; then
 fi
 
 ####################################################################################################
-# 											OUTBOUND
+#						OUTBOUND
 ####################################################################################################
 
 # Disable traffic out of the specified interfaces depending on the answers given 
@@ -335,18 +341,21 @@ iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 # Allow DHCP / broadcasts outbound
 iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 
-# Dropping all other outbound traffic if outputPolicy is set to DROP
-if  [[ "$outputPolicy" == DROP ]]; then
-	iptables -A OUTPUT -j DROP
+# Allow packets from established and related sessions back out
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Drop all other outbound traffic if outputPolicy is set to DROP
+if  [[ "$inputPolicy" == DROP ]]; then
+	iptables -A INPUT -j DROP
 fi
 
-# Dropping all other outbound traffic if outputPolicy is set to REJECT
-if  [[ "$outputPolicy" == REJECT ]]; then
-	iptables -A OUTPUT -j REJECT
+# Drop all other outbound traffic if outputPolicy is set to REJECT
+if  [[ "$inputPolicy" == REJECT ]]; then
+	iptables -A INPUT -j REJECT
 fi
 
 ####################################################################################################
-# 										FORWARDING
+#						FORWARDING
 ####################################################################################################
 
 # Prevent internal forwarding between interfaces as it is a risk that traffic may try
@@ -378,7 +387,7 @@ if  [[ "$forwardPolicy" == REJECT ]]; then
 fi
 
 ####################################################################################################
-# 										IPv6 INBOUND
+#						IPv6 INBOUND
 ####################################################################################################
 
 # Depending on allowPINGS answer, either DROP or ACCEPT inbound pings
@@ -397,7 +406,7 @@ if  [[ "$ipv6InputPolicy" == REJECT ]]; then
 fi
 
 ####################################################################################################
-# 										IPv6 OUTBOUND
+#						IPv6 OUTBOUND
 ####################################################################################################
 
 # Allow outbound pings 
@@ -412,7 +421,7 @@ if  [[ "$ipv6OutputPolicy" == REJECT ]]; then
 fi
 
 ####################################################################################################
-# 										IPv6 FORWARDING
+#						IPv6 FORWARDING
 ####################################################################################################
 
 if  [[ "$ipv6ForwardPolicy" == DROP ]]; then

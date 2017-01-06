@@ -73,22 +73,27 @@ saveTables(){
 		if [[ $packageAnswer == "Y" || $packageAnswer == "y" ]]; then
 			echo
 			yum install -y iptables-services
-			echo
-			systemctl enable iptables.service
-			/usr/libexec/iptables/iptables.init save
 		fi
+		echo
+		systemctl enable ip6tables
+		systemctl enable iptables
+		systemctl start iptables
+		systemctl start ip6tables
+		service iptables save
+		service ip6tables save
 		echo
 		echo "It is necessary to disable firewalld if using iptables. Proceed? Y/N"
 		read -r firewallAnswer
 		if [[ $firewallAnswer == "Y" || $firewallAnswer == "y" ]]; then
 			echo "User entered: $firewallAnswer - Disabling firewalld"
-			systemctl disable firewalld
+			systemctl stop firewalld
+			systemctl mask firewalld
 		fi
 	elif [ "$voidLinux" == "(xbps-builder@build.voidlinux.eu)" ]; then
 		echo " * Saving all iptables settings"
 		iptables-save > /etc/iptables/iptables.rules
 		ip6tables-save > /etc/iptables/ip6tables.rules
-	elif [ -f /etc/lsb-release ]; then
+	elif [ -f /etc/lsb-release ] || [ -f /etc/gentoo-release ]; then
 		echo " * Saving all iptables settings"
 		/etc/init.d/iptables save
 		/etc/init.d/ip6tables save
