@@ -345,13 +345,13 @@ iptables -A OUTPUT -d 255.255.255.255 -j ACCEPT
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Drop all other outbound traffic if outputPolicy is set to DROP
-if  [[ "$inputPolicy" == DROP ]]; then
-	iptables -A INPUT -j DROP
+if  [[ "$outputPolicy" == DROP ]]; then
+	iptables -A OUTPUT -j DROP
 fi
 
 # Drop all other outbound traffic if outputPolicy is set to REJECT
-if  [[ "$inputPolicy" == REJECT ]]; then
-	iptables -A INPUT -j REJECT
+if  [[ "$outputPolicy" == REJECT ]]; then
+	iptables -A OUTPUT -j REJECT
 fi
 
 ####################################################################################################
