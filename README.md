@@ -22,20 +22,20 @@ Pictures
 After the configuration.sh file is set with your configuration, this is what running launch.sh
 looks like
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-00.png?cache=)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-00.png)
 
 If your rule changes sever your connection, say you were on SSH but forgot to allow it, automatically
 your most recent rules will be re-applied.
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-02.png?cache=)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-02.png)
 
-By default before each time the script is ran your existing rules are saved. There is a companion script 
-called 'restore_iptables.sh' that will restore your iptables rules back to those before the new rules were 
+By default before each time launch.sh is ran your existing rules are saved. There is a companion script 
+called 'restore-iptables.sh' that will restore your iptables rules back to those before the new rules were 
 set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
 still it will create time and date stamped rules files each time after to give you a selection of which 
 point in time to restore your rules to.
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php/bash_script_pictures:iptables-01.png?cache=)
+![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-01.png)
 
 Setting the variables
 ===
@@ -43,7 +43,6 @@ Setting the variables
 Within configuration.sh there are variables which must be filled out, this requires a little bit of 
 configuration to adjust it to your specific needs. Each section is thoroughly commented so read them 
 at each step and you will not have any issues.
-
 
 How to use
 ===
@@ -54,7 +53,7 @@ How to use
 git clone https://github.com/jeekkd/restricted-iptables.git && cd restricted-iptables
 ```
 
-- This will make the scripts readable, writable, and executable to root and your user. 
+- This will make the scripts readable, writable, and executable to root and your user
 
 ```
 chmod 770 *.sh
@@ -66,7 +65,7 @@ chmod 770 *.sh
 gedit configuration.sh
 ```
 
-- Make sure you've saved, then launch the main script by doing the following:
+- Make sure you've saved, then launch the main script by doing the following
 
 ```
 sudo bash launch.sh
@@ -80,13 +79,7 @@ modules are enabled](https://wiki.gentoo.org/wiki/Iptables)
 Restoring previous rules
 ===
 
-By default before each time the script is ran your existing rules are saved. There is a companion script 
-called 'restore-iptables.sh' that will restore your iptables rules back to those before the new rules were 
-set. It saves an original copy of your rules the first time the script is ran, so long as that file exists 
-still it will create time and date stamped rules files each time after to give you a selection of which point 
-in time to restore your rules to.
-
-- To restore your old rules launch the script as such and follow the prompts
+- To restore your old rules launch restore-iptables.sh as such and follow the prompts
 
 ```
 sudo bash restore-iptables.sh
