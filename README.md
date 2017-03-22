@@ -92,13 +92,14 @@ sudo bash restore-iptables.sh
 configuration.sh) or manually save by doing the following:
 >
 > Saving:
-> ```
- iptables-save > /path/to/rules/example.rules
+>```
+> iptables-save > /path/to/rules/example.rules
 >
 >```
 > Restoring:
-> ```
- iptables-restore < /path/to/rules/example.rules
-> ```
-> For your specific distribution you will want to search how to permanently save your rules. 
+>```
+> iptables-restore < /path/to/rules/example.rules
+>```
 >
+>For your specific distribution you will want to search how to permanently save your rules. 
+
