@@ -22,12 +22,12 @@ Pictures
 After the configuration.sh file is set with your configuration, this is what running launch.sh
 looks like
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-00.png)
+![daulton.ca](https://daulton.ca/images/bash-script-screenshots/iptables-00.png)
 
 If your rule changes sever your connection, say you were on SSH but forgot to allow it, automatically
 your most recent rules will be re-applied.
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-02.png)
+![daulton.ca](https://daulton.ca/images/bash-script-screenshots/iptables-02.png)
 
 By default before each time launch.sh is ran your existing rules are saved. There is a companion script 
 called 'restore-iptables.sh' that will restore your iptables rules back to those before the new rules were 
@@ -35,7 +35,7 @@ set. It saves an original copy of your rules the first time the script is ran, s
 still it will create time and date stamped rules files each time after to give you a selection of which 
 point in time to restore your rules to.
 
-![daulton.ca](https://daulton.ca/lib/exe/fetch.php?cache=&media=bash_script_pictures:iptables-01.png)
+![daulton.ca](https://daulton.ca/images/bash-script-screenshots/iptables-01.png)
 
 Setting the variables
 ===
